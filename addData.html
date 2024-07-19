@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Create Quiz</title>
+    <style>
+      /* Add your styles here */
+    </style>
+  </head>
+  <body>
+    <h1>Create Quiz</h1>
+    <div>
+      <h2>Add Question</h2>
+      <form id="question-form">
+        <label for="question">Question:</label>
+        <input type="text" id="question" required /><br />
+
+        <label for="right-answer">Right Answer:</label>
+        <input type="text" id="right-answer" required /><br />
+
+        <label for="option-set">Select Option Set:</label>
+        <select id="option-set" required>
+          <!-- Options will be populated dynamically --></select
+        ><br />
+
+        <label for="explanation">Explanation:</label>
+        <textarea id="explanation"></textarea><br />
+
+        <button type="submit">Add Question</button>
+      </form>
+    </div>
+
+    <div>
+      <h2>Add Option Set</h2>
+      <form id="option-set-form">
+        <label for="option-set-name">Option Set Name:</label>
+        <input type="text" id="option-set-name" required /><br />
+
+        <label for="options">Options (comma-separated):</label>
+        <textarea id="options" required></textarea><br />
+
+        <button type="submit">Add Option Set</button>
+      </form>
+    </div>
+
+    <h2>Quiz Data</h2>
+    <pre id="quiz-data"></pre>
+
+    <h2>Option Sets</h2>
+    <pre id="option-sets"></pre>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        let quizData = [];
+        let optionSets = {};
+
+        const questionForm = document.getElementById("question-form");
+        const optionSetForm = document.getElementById("option-set-form");
+        const optionSetSelect = document.getElementById("option-set");
+        const quizDataPre = document.getElementById("quiz-data");
+        const optionSetsPre = document.getElementById("option-sets");
+
+        function updateDropdown() {
+          optionSetSelect.innerHTML = "";
+          for (const key in optionSets) {
+            const option = document.createElement("option");
+            option.value = key;
+            option.textContent = key;
+            optionSetSelect.appendChild(option);
+          }
+        }
+
+        function displayData() {
+          quizDataPre.textContent = JSON.stringify(quizData, null, 2);
+          optionSetsPre.textContent = JSON.stringify(optionSets, null, 2);
+        }
+
+        questionForm.addEventListener("submit", function (e) {
+          e.preventDefault();
+          const question = document.getElementById("question").value;
+          const rightAnswer = document.getElementById("right-answer").value;
+          const optionSet = document.getElementById("option-set").value;
+          const explanation = document.getElementById("explanation").value;
+
+          if (optionSet in optionSets) {
+            quizData.push({
+              QuestionText: question,
+              rightAnswer: rightAnswer,
+              optionSet: optionSet,
+              Explanation: explanation,
+            });
+            displayData();
+            questionForm.reset();
+          } else {
+            alert("Invalid option set selected.");
+          }
+        });
+
+        optionSetForm.addEventListener("submit", function (e) {
+          e.preventDefault();
+          const optionSetName =
+            document.getElementById("option-set-name").value;
+          const options = document
+            .getElementById("options")
+            .value.split(",")
+            .map((option) => option.trim());
+
+          if (optionSetName && options.length > 0) {
+            optionSets[optionSetName] = options;
+            updateDropdown();
+            displayData();
+            optionSetForm.reset();
+          } else {
+            alert("Please provide a valid option set name and options.");
+          }
+        });
+
+        updateDropdown();
+        displayData();
+      });
+    </script>
+  </body>
+</html>
