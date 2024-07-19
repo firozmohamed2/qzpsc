@@ -19,14 +19,42 @@
         <label for="right-answer">Right Answer:</label>
         <input type="text" id="right-answer" required /><br />
 
-        <label for="option-set">Select Option Set:</label>
-        <select id="option-set" required>
-          <!-- Options will be populated dynamically --></select
-        ><br />
+        <div id="wrong-answers-section">
+          <label for="wrong-answer-1">Wrong Answer 1:</label>
+          <input type="text" id="wrong-answer-1" /><br />
 
-        <label for="explanation">Explanation:</label>
-        <textarea id="explanation"></textarea><br />
+          <label for="wrong-answer-2">Wrong Answer 2:</label>
+          <input type="text" id="wrong-answer-2" /><br />
 
+          <label for="wrong-answer-3">Wrong Answer 3:</label>
+          <input type="text" id="wrong-answer-3" /><br />
+        </div>
+
+        <label>
+          <input
+            type="radio"
+            name="answer-option"
+            id="toggle-wrong-answers"
+            checked
+          />
+          Add Wrong Answers
+        </label>
+
+        <label>
+          <input type="radio" name="answer-option" id="toggle-option-set" />
+          Select Option Set
+        </label>
+
+        <div id="option-set-section" style="display: none">
+          <label for="option-set">Option Set:</label>
+          <select id="option-set">
+            <!-- Options will be populated dynamically --></select
+          ><br />
+        </div>
+        <div>
+          <label for="explanation">Explanation:</label>
+          <textarea id="explanation"></textarea><br />
+        </div>
         <button type="submit">Add Question</button>
       </form>
     </div>
@@ -61,8 +89,18 @@
         const quizDataPre = document.getElementById("quiz-data");
         const optionSetsPre = document.getElementById("option-sets");
 
+        const toggleWrongAnswers = document.getElementById(
+          "toggle-wrong-answers"
+        );
+        const toggleOptionSet = document.getElementById("toggle-option-set");
+        const wrongAnswersSection = document.getElementById(
+          "wrong-answers-section"
+        );
+        const optionSetSection = document.getElementById("option-set-section");
+
         function updateDropdown() {
-          optionSetSelect.innerHTML = "";
+          optionSetSelect.innerHTML =
+            '<option value="">Select an option set</option>';
           for (const key in optionSets) {
             const option = document.createElement("option");
             option.value = key;
@@ -76,25 +114,61 @@
           optionSetsPre.textContent = JSON.stringify(optionSets, null, 2);
         }
 
+        toggleWrongAnswers.addEventListener("change", function () {
+          if (toggleWrongAnswers.checked) {
+            wrongAnswersSection.style.display = "block";
+            optionSetSection.style.display = "none";
+          }
+        });
+
+        toggleOptionSet.addEventListener("change", function () {
+          if (toggleOptionSet.checked) {
+            wrongAnswersSection.style.display = "none";
+            optionSetSection.style.display = "block";
+          }
+        });
+
         questionForm.addEventListener("submit", function (e) {
           e.preventDefault();
           const question = document.getElementById("question").value;
           const rightAnswer = document.getElementById("right-answer").value;
-          const optionSet = document.getElementById("option-set").value;
           const explanation = document.getElementById("explanation").value;
 
-          if (optionSet in optionSets) {
+          if (toggleWrongAnswers.checked) {
+            const wrongAnswer1 =
+              document.getElementById("wrong-answer-1").value;
+            const wrongAnswer2 =
+              document.getElementById("wrong-answer-2").value;
+            const wrongAnswer3 =
+              document.getElementById("wrong-answer-3").value;
+
             quizData.push({
               QuestionText: question,
               rightAnswer: rightAnswer,
-              optionSet: optionSet,
+              wrongAnswers: [wrongAnswer1, wrongAnswer2, wrongAnswer3],
               Explanation: explanation,
             });
-            displayData();
-            questionForm.reset();
-          } else {
-            alert("Invalid option set selected.");
+          } else if (toggleOptionSet.checked) {
+            const optionSet = document.getElementById("option-set").value;
+
+            if (optionSet in optionSets) {
+              quizData.push({
+                QuestionText: question,
+                rightAnswer: rightAnswer,
+                optionSet: optionSet,
+                Explanation: explanation,
+              });
+            } else {
+              alert("Invalid option set selected.");
+              return;
+            }
           }
+
+          displayData();
+          questionForm.reset();
+          toggleWrongAnswers.checked = true;
+          wrongAnswersSection.style.display = "block";
+          optionSetSection.style.display = "none";
         });
 
         optionSetForm.addEventListener("submit", function (e) {
