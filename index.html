@@ -156,7 +156,27 @@
         );
         const minimizeButton = document.querySelector(".minimize-button");
 
-        // Function to update results display
+        const quizData = [
+          {
+            QuestionText: "What is the capital of France?",
+            rightAnswer: "Paris",
+            optionSet: "countries",
+            Explanation: "The capital of France is Paris.",
+          },
+          {
+            QuestionText: "Which planet is known as the Red Planet?",
+            rightAnswer: "Mars",
+            optionSet: "planets",
+            Explanation:
+              "Mars is known as the Red Planet due to its reddish appearance.",
+          },
+        ];
+
+        const optionSet = {
+          countries: ["Berlin", "Madrid", "Lisbon"],
+          planets: ["Earth", "Jupiter", "Saturn"],
+        };
+
         function updateResults() {
           document.getElementById("right-answers").textContent =
             rightAnswersCount;
@@ -171,39 +191,6 @@
           }
         }
 
-        // Hardcoded quiz data
-        const quizData = [
-          {
-            QuestionText: "What is the capital of France?",
-            a: "Berlin",
-            b: "Madrid",
-            c: "Paris",
-            d: "Lisbon",
-            "Correct Option": "c",
-            Explanation: "The capital of France is Paris.",
-          },
-          {
-            QuestionText: "Which planet is known as the Red Planet?",
-            a: "Earth",
-            b: "Mars",
-            c: "Jupiter",
-            d: "Saturn",
-            "Correct Option": "b",
-            Explanation:
-              "Mars is known as the Red Planet due to its reddish appearance.",
-          },
-          {
-            QuestionText: "What is the largest ocean on Earth?",
-            a: "Atlantic Ocean",
-            b: "Indian Ocean",
-            c: "Arctic Ocean",
-            d: "Pacific Ocean",
-            "Correct Option": "d",
-            Explanation: "The Pacific Ocean is the largest ocean on Earth.",
-          },
-        ];
-
-        // Function to display the quiz
         function displayQuiz(questions) {
           const quizContainer = document.getElementById("quiz-container");
 
@@ -227,69 +214,15 @@
               question["QuestionText"]
             }</p>`;
 
-            const options = [];
-
-            for (let i = 1; i <= 4; i++) {
-              let optionKey;
-              switch (i) {
-                case 1:
-                  optionKey = "a";
-                  break;
-                case 2:
-                  optionKey = "b";
-                  break;
-                case 3:
-                  optionKey = "c";
-                  break;
-                case 4:
-                  optionKey = "d";
-                  break;
-                default:
-                  optionKey = "a";
-                  break;
-              }
-              if (!question.hasOwnProperty(optionKey)) {
-                console.error(
-                  `Missing '${optionKey}' property for question ${index + 1}.`
-                );
-                return;
-              }
-
-              options.push(question[optionKey]);
-            }
-
-            if (!question.hasOwnProperty("Correct Option")) {
-              console.error(
-                `Missing 'Correct Option' property for question ${index + 1}.`
-              );
-              return;
-            }
-
-            const correctOptionLetter = question["Correct Option"];
-            let correctAnswer;
-            let correctLabelElement;
-            switch (correctOptionLetter) {
-              case "a":
-                correctAnswer = options[0];
-                break;
-              case "b":
-                correctAnswer = options[1];
-                break;
-              case "c":
-                correctAnswer = options[2];
-                break;
-              case "d":
-                correctAnswer = options[3];
-                break;
-              default:
-                correctAnswer = options[0];
-                break;
-            }
-
+            const options = [
+              ...optionSet[question["optionSet"]],
+              question["rightAnswer"],
+            ];
             shuffleArray(options);
 
             const explanation = question["Explanation"] || "";
             let answered = false;
+            let correctLabelElement;
 
             options.forEach((option, optionIndex) => {
               const optionElement = document.createElement("input");
@@ -302,7 +235,7 @@
               labelElement.htmlFor = `question-${index}-option-${optionIndex}`;
               labelElement.innerHTML = option;
 
-              if (option === correctAnswer) {
+              if (option === question["rightAnswer"]) {
                 correctLabelElement = labelElement;
               }
 
@@ -312,7 +245,7 @@
                 }
                 answered = true;
 
-                if (option === correctAnswer) {
+                if (option === question["rightAnswer"]) {
                   rightAnswersCount++;
                   labelElement.classList.add("correct-answer");
                   labelElement.innerHTML += " ✅ ";
@@ -326,7 +259,9 @@
                     index + 1
                   }:</strong> ${
                     question["QuestionText"]
-                  }<br><strong>Your answer:</strong> ${option}<br><strong>Correct answer:</strong> ${correctAnswer}`;
+                  }<br><strong>Your answer:</strong> ${option}<br><strong>Correct answer:</strong> ${
+                    question["rightAnswer"]
+                  }`;
                   wrongAnswersList.appendChild(wrongAnswerElement);
                 }
 
@@ -348,7 +283,6 @@
           });
         }
 
-        // Function to toggle the side panel visibility
         function toggleSidePanel() {
           sidePanel.classList.toggle("open");
           togglePanelButton.textContent = sidePanel.classList.contains("open")
@@ -359,7 +293,6 @@
         togglePanelButton.addEventListener("click", toggleSidePanel);
         minimizeButton.addEventListener("click", toggleSidePanel);
 
-        // Shuffle and display quiz data
         shuffleArray(quizData);
         displayQuiz(quizData);
       });
