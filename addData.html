@@ -17,12 +17,12 @@
       h1 {
         background-color: #4caf50;
         color: white;
-        padding: 20px;
+        padding: 10px;
         text-align: center;
         margin: 0;
       }
 
-      h2 {
+      p {
         color: #4caf50;
         border-bottom: 2px solid #4caf50;
         padding-bottom: 5px;
@@ -30,28 +30,28 @@
 
       form {
         background-color: white;
-        padding: 20px;
+        padding: 10px;
         border-radius: 8px;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        margin: 20px 0;
+        margin: 10px 0;
       }
 
       label {
         display: block;
-        margin: 10px 0 5px;
+        margin: 5px 0 2px;
         font-weight: bold;
       }
 
       input[type="text"],
       textarea,
       select {
-        width: 100%;
-        padding: 10px;
-        margin-bottom: 10px;
+        width: 30%;
+        padding: 5px;
+        margin-bottom: 5px;
         border: 1px solid #ddd;
         border-radius: 4px;
         box-sizing: border-box;
-        font-size: 16px;
+        font-size: 14px;
       }
 
       textarea {
@@ -61,11 +61,11 @@
       button {
         background-color: #4caf50;
         color: white;
-        padding: 10px 20px;
+        padding: 5px 10px;
         border: none;
         border-radius: 4px;
         cursor: pointer;
-        font-size: 16px;
+        font-size: 14px;
       }
 
       button:hover {
@@ -74,25 +74,38 @@
 
       pre {
         background-color: white;
-        padding: 20px;
+        padding: 10px;
         border-radius: 8px;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         overflow-x: auto;
+        white-space: pre-wrap;
+      }
+
+      .editable-input {
+        background: none;
+        border: none;
+        font-family: inherit;
+        font-size: inherit;
+        color: inherit;
+        padding: 0;
+        margin: 0;
+        width: 100%;
+        box-sizing: border-box;
       }
 
       #option-buttons {
-        margin-top: 10px;
+        margin-top: 5px;
       }
 
       #option-buttons button {
         background-color: #007bff;
         color: white;
         border: none;
-        padding: 10px 15px;
-        margin: 5px;
+        padding: 5px 10px;
+        margin: 2px;
         border-radius: 4px;
         cursor: pointer;
-        font-size: 14px;
+        font-size: 12px;
       }
 
       #option-buttons button:hover {
@@ -118,12 +131,18 @@
       #option-set-section.active {
         display: block;
       }
+
+      .inline-fields {
+        display: flex;
+        justify-content: space-between;
+        gap: 5px;
+      }
     </style>
   </head>
   <body>
-    <h1>Create Quiz</h1>
+    <p>Create Quiz</p>
     <div>
-      <h2>Add Question</h2>
+      <p>Add Question</p>
       <form id="question-form">
         <label for="question">Question:</label>
         <input type="text" id="question" required /><br />
@@ -131,36 +150,41 @@
         <label for="right-answer">Right Answer:</label>
         <input type="text" id="right-answer" required /><br />
 
-        <div id="wrong-answers-section" style="display: none">
+        <div id="wrong-answers-section" class="inline-fields">
           <label for="wrong-answer-1">Wrong Answer 1:</label>
-          <input type="text" id="wrong-answer-1" /><br />
+          <input type="text" id="wrong-answer-1" />
 
           <label for="wrong-answer-2">Wrong Answer 2:</label>
-          <input type="text" id="wrong-answer-2" /><br />
+          <input type="text" id="wrong-answer-2" />
 
           <label for="wrong-answer-3">Wrong Answer 3:</label>
-          <input type="text" id="wrong-answer-3" /><br />
+          <input type="text" id="wrong-answer-3" />
         </div>
 
-        <label>
-          <input type="radio" name="answer-option" id="toggle-wrong-answers" />
-          Add Wrong Answers
-        </label>
+        <div class="toggle-labels">
+          <label>
+            <input
+              type="radio"
+              name="answer-option"
+              id="toggle-wrong-answers"
+            />
+            Add Wrong Answers
+          </label>
 
-        <label>
-          <input
-            type="radio"
-            name="answer-option"
-            id="toggle-option-set"
-            checked
-          />
-          Select Option Set
-        </label>
+          <label>
+            <input
+              type="radio"
+              name="answer-option"
+              id="toggle-option-set"
+              checked
+            />
+            Select Option Set
+          </label>
+        </div>
 
         <div id="option-set-section">
           <label for="option-set">Option Set:</label>
-          <select id="option-set">
-            <!-- Options will be populated dynamically --></select
+          <select id="option-set"></select
           ><br />
           <div id="option-buttons"></div>
         </div>
@@ -225,8 +249,58 @@
         }
 
         function displayData() {
-          quizDataPre.textContent = JSON.stringify(quizData, null, 2);
-          optionSetsPre.textContent = JSON.stringify(optionSets, null, 2);
+          quizDataPre.innerHTML = "";
+          optionSetsPre.innerHTML = "";
+
+          quizData.forEach((data, index) => {
+            const questionContainer = document.createElement("div");
+
+            for (const key in data) {
+              const input = document.createElement("input");
+              input.type = "text";
+              input.value = data[key];
+              input.className = "editable-input";
+              input.addEventListener("change", function () {
+                data[key] = input.value;
+              });
+              questionContainer.appendChild(input);
+              questionContainer.appendChild(document.createElement("br"));
+            }
+
+            quizDataPre.appendChild(questionContainer);
+          });
+
+          for (const key in optionSets) {
+            const optionSetContainer = document.createElement("div");
+
+            const setNameInput = document.createElement("input");
+            setNameInput.type = "text";
+            setNameInput.value = key;
+            setNameInput.className = "editable-input";
+            setNameInput.addEventListener("change", function () {
+              const newKey = setNameInput.value;
+              optionSets[newKey] = optionSets[key];
+              delete optionSets[key];
+              updateDropdown();
+              displayData();
+            });
+            optionSetContainer.appendChild(setNameInput);
+            optionSetContainer.appendChild(document.createElement("br"));
+
+            optionSets[key].forEach((option, idx) => {
+              const optionInput = document.createElement("input");
+              optionInput.type = "text";
+              optionInput.value = option;
+              optionInput.className = "editable-input";
+              optionInput.addEventListener("change", function () {
+                optionSets[key][idx] = optionInput.value;
+              });
+              optionSetContainer.appendChild(optionInput);
+              optionSetContainer.appendChild(document.createElement("br"));
+            });
+
+            optionSetsPre.appendChild(optionSetContainer);
+          }
         }
 
         function createOptionButtons(options) {
@@ -245,16 +319,16 @@
 
         toggleWrongAnswers.addEventListener("change", function () {
           if (toggleWrongAnswers.checked) {
-            wrongAnswersSection.style.display = "block";
-            optionSetSection.style.display = "none";
+            wrongAnswersSection.classList.add("active");
+            optionSetSection.classList.remove("active");
             optionButtonsDiv.innerHTML = "";
           }
         });
 
         toggleOptionSet.addEventListener("change", function () {
           if (toggleOptionSet.checked) {
-            wrongAnswersSection.style.display = "none";
-            optionSetSection.style.display = "block";
+            wrongAnswersSection.classList.remove("active");
+            optionSetSection.classList.add("active");
             const selectedOptionSet = optionSetSelect.value;
             if (selectedOptionSet && optionSets[selectedOptionSet]) {
               createOptionButtons(optionSets[selectedOptionSet]);
@@ -310,8 +384,8 @@
           displayData();
           questionForm.reset();
           toggleWrongAnswers.checked = true;
-          wrongAnswersSection.style.display = "block";
-          optionSetSection.style.display = "none";
+          wrongAnswersSection.classList.add("active");
+          optionSetSection.classList.remove("active");
           optionButtonsDiv.innerHTML = "";
         });
 
@@ -336,6 +410,7 @@
 
         updateDropdown();
         displayData();
+        optionSetSection.classList.add("active"); // Ensure option set section is visible on load
       });
     </script>
   </body>
