@@ -3,7 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Create Quiz</title>
+    <title>Document</title>
+
+   
+
+    <!-- FontAweome CDN Link for Icons -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"
+    />
     <style>
       /* Add your styles here */
       body {
@@ -138,12 +146,21 @@
         gap: 5px;
       }
     </style>
+
+    <script src="https://www.gstatic.com/firebasejs/8.8.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.8.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.8.1/firebase-auth.js"></script>
   </head>
+
+  
+
   <body>
-    <p>Create Quiz</p>
-    <div>
-      <p>Add Question</p>
+    <p>Add Question</p>
+    <label for="document-name">Document Name:</label>
+    <input type="text" id="document-name" required /><br />
+
       <form id="question-form">
+      
         <label for="question">Question:</label>
         <input type="text" id="question" required /><br />
 
@@ -211,12 +228,62 @@
     </div>
 
     <h2>Quiz Data</h2>
-    <pre id="quiz-data"></pre>
+    <pre id="quiz-data" contenteditable="true"></pre>
 
     <h2>Option Sets</h2>
-    <pre id="option-sets"></pre>
+    <pre id="option-sets" contenteditable="true"></pre>
+
+    <!-- Upload Button -->
+    <button id="upload-button">Upload to Firestore</button>
+
 
     <script>
+      // Replace with your Firebase Config
+      const firebaseConfig = {
+        apiKey: "AIzaSyA88fPkOvcI4QA9qD3ROpk-ay-V6ibQQlc",
+        authDomain: "my-application-7fd40.firebaseapp.com",
+        projectId: "my-application-7fd40",
+        storageBucket: "my-application-7fd40.appspot.com",
+        messagingSenderId: "269589994279",
+        appId: "1:269589994279:web:4c617a622c328a1224e702",
+        measurementId: "G-D8MD1J28GR",
+      };
+      // Initialize Firebase
+      firebase.initializeApp(firebaseConfig);
+
+      firebase.auth().onAuthStateChanged((user) => {
+        if (user) {
+          var uid = user.uid;
+
+          if (user.isAnonymous) {
+            signinState = 0;
+          } else {
+            email = user.email;
+          }
+
+          // ...
+        } else {
+          // User is signed out
+          // ...
+          signinState = 0;
+          //anonymous signin
+
+          firebase
+            .auth()
+            .signInAnonymously()
+            .then(function () {})
+            .catch(function (error) {
+              var errorCode = error.code;
+              var errorMessage = error.message;
+              console.log(errorCode);
+              console.log(errorMessage);
+            });
+        }
+      });
+
+      const db = firebase.firestore();
+
+
       document.addEventListener("DOMContentLoaded", function () {
         let quizData = [];
         let optionSets = {};
@@ -249,58 +316,8 @@
         }
 
         function displayData() {
-          quizDataPre.innerHTML = "";
-          optionSetsPre.innerHTML = "";
-
-          quizData.forEach((data, index) => {
-            const questionContainer = document.createElement("div");
-
-            for (const key in data) {
-              const input = document.createElement("input");
-              input.type = "text";
-              input.value = data[key];
-              input.className = "editable-input";
-              input.addEventListener("change", function () {
-                data[key] = input.value;
-              });
-              questionContainer.appendChild(input);
-              questionContainer.appendChild(document.createElement("br"));
-            }
-
-            quizDataPre.appendChild(questionContainer);
-          });
-
-          for (const key in optionSets) {
-            const optionSetContainer = document.createElement("div");
-
-            const setNameInput = document.createElement("input");
-            setNameInput.type = "text";
-            setNameInput.value = key;
-            setNameInput.className = "editable-input";
-            setNameInput.addEventListener("change", function () {
-              const newKey = setNameInput.value;
-              optionSets[newKey] = optionSets[key];
-              delete optionSets[key];
-              updateDropdown();
-              displayData();
-            });
-            optionSetContainer.appendChild(setNameInput);
-            optionSetContainer.appendChild(document.createElement("br"));
-
-            optionSets[key].forEach((option, idx) => {
-              const optionInput = document.createElement("input");
-              optionInput.type = "text";
-              optionInput.value = option;
-              optionInput.className = "editable-input";
-              optionInput.addEventListener("change", function () {
-                optionSets[key][idx] = optionInput.value;
-              });
-              optionSetContainer.appendChild(optionInput);
-              optionSetContainer.appendChild(document.createElement("br"));
-            });
-
-            optionSetsPre.appendChild(optionSetContainer);
-          }
+          quizDataPre.textContent = JSON.stringify(quizData, null, 2);
+          optionSetsPre.textContent = JSON.stringify(optionSets, null, 2);
         }
 
         function createOptionButtons(options) {
@@ -382,11 +399,17 @@
           }
 
           displayData();
-          questionForm.reset();
-          toggleWrongAnswers.checked = true;
-          wrongAnswersSection.classList.add("active");
-          optionSetSection.classList.remove("active");
-          optionButtonsDiv.innerHTML = "";
+          
+          document.getElementById("wrong-answer-1").value="";
+          document.getElementById("wrong-answer-2").value="";
+          document.getElementById("wrong-answer-3").value="";
+          document.getElementById("question").value="";
+          document.getElementById("right-answer").value="";
+          document.getElementById("explanation").value="";
+
+
+
+
         });
 
         optionSetForm.addEventListener("submit", function (e) {
@@ -411,7 +434,53 @@
         updateDropdown();
         displayData();
         optionSetSection.classList.add("active"); // Ensure option set section is visible on load
+
+        function uploadData() {
+  const documentName = document.getElementById("document-name").value;
+  if (!documentName) {
+    alert("Please provide a document name.");
+    return;
+  }
+
+  db.collection("quizzes")
+    .doc(documentName) // use the document name as the document ID
+    .set({
+      quizData: JSON.parse(quizDataPre.textContent),
+      optionSets: JSON.parse(optionSetsPre.textContent),
+    })
+    .then(() => {
+      alert("Document written with ID: " + documentName);
+    })
+    .catch((error) => {
+      console.error("Error adding document: ", error);
+    });
+}
+
+
+        document
+          .getElementById("upload-button")
+          .addEventListener("click", uploadData);
       });
+
+      
+
+   
     </script>
+
+    <script
+      src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
+      integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"
+      integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"
+      integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
+      crossorigin="anonymous"
+    ></script>
   </body>
 </html>
