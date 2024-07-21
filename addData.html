@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Document</title>
 
-   
-
     <!-- FontAweome CDN Link for Icons -->
     <link
       rel="stylesheet"
@@ -151,68 +149,65 @@
     <script src="https://www.gstatic.com/firebasejs/8.8.1/firebase-firestore.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.8.1/firebase-auth.js"></script>
   </head>
-
-  
-
   <body>
     <p>Add Question</p>
     <label for="document-name">Document Name:</label>
-    <input type="text" id="document-name" required /><br />
+    <select id="document-name-dropdown"></select>
+    <input
+      type="text"
+      id="document-name"
+      placeholder="Or enter new document name"
+      required
+    /><br />
 
-      <form id="question-form">
-      
-        <label for="question">Question:</label>
-        <input type="text" id="question" required /><br />
+    <form id="question-form">
+      <label for="question">Question:</label>
+      <input type="text" id="question" required /><br />
 
-        <label for="right-answer">Right Answer:</label>
-        <input type="text" id="right-answer" required /><br />
+      <label for="right-answer">Right Answer:</label>
+      <input type="text" id="right-answer" required /><br />
 
-        <div id="wrong-answers-section" class="inline-fields">
-          <label for="wrong-answer-1">Wrong Answer 1:</label>
-          <input type="text" id="wrong-answer-1" />
+      <div id="wrong-answers-section" class="inline-fields">
+        <label for="wrong-answer-1">Wrong Answer 1:</label>
+        <input type="text" id="wrong-answer-1" />
 
-          <label for="wrong-answer-2">Wrong Answer 2:</label>
-          <input type="text" id="wrong-answer-2" />
+        <label for="wrong-answer-2">Wrong Answer 2:</label>
+        <input type="text" id="wrong-answer-2" />
 
-          <label for="wrong-answer-3">Wrong Answer 3:</label>
-          <input type="text" id="wrong-answer-3" />
-        </div>
+        <label for="wrong-answer-3">Wrong Answer 3:</label>
+        <input type="text" id="wrong-answer-3" />
+      </div>
 
-        <div class="toggle-labels">
-          <label>
-            <input
-              type="radio"
-              name="answer-option"
-              id="toggle-wrong-answers"
-            />
-            Add Wrong Answers
-          </label>
+      <div class="toggle-labels">
+        <label>
+          <input type="radio" name="answer-option" id="toggle-wrong-answers" />
+          Add Wrong Answers
+        </label>
 
-          <label>
-            <input
-              type="radio"
-              name="answer-option"
-              id="toggle-option-set"
-              checked
-            />
-            Select Option Set
-          </label>
-        </div>
+        <label>
+          <input
+            type="radio"
+            name="answer-option"
+            id="toggle-option-set"
+            checked
+          />
+          Select Option Set
+        </label>
+      </div>
 
-        <div id="option-set-section">
-          <label for="option-set">Option Set:</label>
-          <select id="option-set"></select
-          ><br />
-          <div id="option-buttons"></div>
-        </div>
+      <div id="option-set-section">
+        <label for="option-set">Option Set:</label>
+        <select id="option-set"></select
+        ><br />
+        <div id="option-buttons"></div>
+      </div>
 
-        <div>
-          <label for="explanation">Explanation:</label>
-          <textarea id="explanation"></textarea><br />
-        </div>
-        <button type="submit">Add Question</button>
-      </form>
-    </div>
+      <div>
+        <label for="explanation">Explanation:</label>
+        <textarea id="explanation"></textarea><br />
+      </div>
+      <button type="submit">Add Question</button>
+    </form>
 
     <div>
       <h2>Add Option Set</h2>
@@ -235,7 +230,6 @@
 
     <!-- Upload Button -->
     <button id="upload-button">Upload to Firestore</button>
-
 
     <script>
       // Replace with your Firebase Config
@@ -283,7 +277,6 @@
 
       const db = firebase.firestore();
 
-
       document.addEventListener("DOMContentLoaded", function () {
         let quizData = [];
         let optionSets = {};
@@ -303,6 +296,10 @@
         );
         const optionSetSection = document.getElementById("option-set-section");
         const optionButtonsDiv = document.getElementById("option-buttons");
+
+        const documentNameDropdown = document.getElementById(
+          "document-name-dropdown"
+        );
 
         function updateDropdown() {
           optionSetSelect.innerHTML =
@@ -399,17 +396,13 @@
           }
 
           displayData();
-          
-          document.getElementById("wrong-answer-1").value="";
-          document.getElementById("wrong-answer-2").value="";
-          document.getElementById("wrong-answer-3").value="";
-          document.getElementById("question").value="";
-          document.getElementById("right-answer").value="";
-          document.getElementById("explanation").value="";
 
-
-
-
+          document.getElementById("wrong-answer-1").value = "";
+          document.getElementById("wrong-answer-2").value = "";
+          document.getElementById("wrong-answer-3").value = "";
+          document.getElementById("question").value = "";
+          document.getElementById("right-answer").value = "";
+          document.getElementById("explanation").value = "";
         });
 
         optionSetForm.addEventListener("submit", function (e) {
@@ -436,35 +429,69 @@
         optionSetSection.classList.add("active"); // Ensure option set section is visible on load
 
         function uploadData() {
-  const documentName = document.getElementById("document-name").value;
-  if (!documentName) {
-    alert("Please provide a document name.");
-    return;
-  }
+          let documentName = document.getElementById("document-name").value;
+          const selectedDoc = documentNameDropdown.value;
 
-  db.collection("quizzes")
-    .doc(documentName) // use the document name as the document ID
-    .set({
-      quizData: JSON.parse(quizDataPre.textContent),
-      optionSets: JSON.parse(optionSetsPre.textContent),
-    })
-    .then(() => {
-      alert("Document written with ID: " + documentName);
-    })
-    .catch((error) => {
-      console.error("Error adding document: ", error);
-    });
-}
+          if (!documentName && !selectedDoc) {
+            alert("Please provide or select a document name.");
+            return;
+          }
 
+          if (!documentName) {
+            documentName = selectedDoc;
+          }
+
+          db.collection("quizzes")
+            .doc(documentName) // use the document name as the document ID
+            .set({
+              quizData: JSON.parse(quizDataPre.textContent),
+              optionSets: JSON.parse(optionSetsPre.textContent),
+            })
+            .then(() => {
+              alert("Document written with ID: " + documentName);
+            })
+            .catch((error) => {
+              console.error("Error adding document: ", error);
+            });
+        }
 
         document
           .getElementById("upload-button")
           .addEventListener("click", uploadData);
+
+        function fetchDocumentNames() {
+          db.collection("quizzes")
+            .get()
+            .then((querySnapshot) => {
+              querySnapshot.forEach((doc) => {
+                const option = document.createElement("option");
+                option.value = doc.id;
+                option.textContent = doc.id;
+                documentNameDropdown.appendChild(option);
+              });
+            });
+        }
+
+        documentNameDropdown.addEventListener("change", function () {
+          const selectedDoc = documentNameDropdown.value;
+          if (selectedDoc) {
+            db.collection("quizzes")
+              .doc(selectedDoc)
+              .get()
+              .then((doc) => {
+                if (doc.exists) {
+                  const data = doc.data();
+                  quizData = data.quizData || [];
+                  optionSets = data.optionSets || {};
+                  displayData();
+                  updateDropdown();
+                }
+              });
+          }
+        });
+
+        fetchDocumentNames();
       });
-
-      
-
-   
     </script>
 
     <script
