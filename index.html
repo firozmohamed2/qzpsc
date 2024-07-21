@@ -3,8 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Quiz Website</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
+    <title>Document</title>
+
+    <!-- FontAweome CDN Link for Icons -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"
+    />
     <style>
       /* Style the radio container */
       #quiz-container {
@@ -128,7 +133,11 @@
         background-color: #45a049;
       }
     </style>
+    <script src="https://www.gstatic.com/firebasejs/8.8.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.8.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.8.1/firebase-auth.js"></script>
   </head>
+
   <body>
     <div id="results-container">
       <div>
@@ -146,7 +155,52 @@
     <button id="toggle-panel-button">Show Wrong Answers</button>
 
     <script>
-      document.addEventListener("DOMContentLoaded", function () {
+      // Replace with your Firebase Config
+      const firebaseConfig = {
+        apiKey: "AIzaSyA88fPkOvcI4QA9qD3ROpk-ay-V6ibQQlc",
+        authDomain: "my-application-7fd40.firebaseapp.com",
+        projectId: "my-application-7fd40",
+        storageBucket: "my-application-7fd40.appspot.com",
+        messagingSenderId: "269589994279",
+        appId: "1:269589994279:web:4c617a622c328a1224e702",
+        measurementId: "G-D8MD1J28GR",
+      };
+      // Initialize Firebase
+      firebase.initializeApp(firebaseConfig);
+
+      firebase.auth().onAuthStateChanged((user) => {
+        if (user) {
+          var uid = user.uid;
+
+          if (user.isAnonymous) {
+            signinState = 0;
+          } else {
+            email = user.email;
+          }
+
+          // ...
+        } else {
+          // User is signed out
+          // ...
+          signinState = 0;
+          //anonymous signin
+
+          firebase
+            .auth()
+            .signInAnonymously()
+            .then(function () {})
+            .catch(function (error) {
+              var errorCode = error.code;
+              var errorMessage = error.message;
+              console.log(errorCode);
+              console.log(errorMessage);
+            });
+        }
+      });
+
+      const db = firebase.firestore();
+
+      document.addEventListener("DOMContentLoaded", async function () {
         let rightAnswersCount = 0;
         let wrongAnswersCount = 0;
         const wrongAnswersList = document.getElementById("wrong-answers-list");
@@ -156,26 +210,8 @@
         );
         const minimizeButton = document.querySelector(".minimize-button");
 
-        const quizData = [
-          {
-            QuestionText: "What is the capital of France?",
-            rightAnswer: "Paris",
-            optionSet: "countries",
-            Explanation: "The capital of France is Paris.",
-          },
-          {
-            QuestionText: "Which planet is known as the Red Planet?",
-            rightAnswer: "Mars",
-            optionSet: "planets",
-            Explanation:
-              "Mars is known as the Red Planet due to its reddish appearance.",
-          },
-        ];
-
-        const optionSet = {
-          countries: ["Berlin", "Madrid", "Lisbon"],
-          planets: ["Earth", "Jupiter", "Saturn"],
-        };
+        let quizData = [];
+        let optionSet = {};
 
         function updateResults() {
           document.getElementById("right-answers").textContent =
@@ -185,10 +221,35 @@
         }
 
         function shuffleArray(array) {
+          if (!Array.isArray(array)) {
+            console.error("The provided argument is not an array.");
+            return;
+          }
+
           for (let i = array.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [array[i], array[j]] = [array[j], array[i]];
           }
+        }
+
+        function getOptions(question) {
+          if (!optionSet[question.optionSet]) {
+            console.error(`Option set '${question.optionSet}' not found.`);
+            return [];
+          }
+
+          const allOptions = optionSet[question.optionSet].filter(
+            (option) => option !== question.rightAnswer
+          );
+
+          shuffleArray(allOptions);
+
+          const selectedOptions = allOptions.slice(0, 3);
+          selectedOptions.push(question.rightAnswer);
+
+          shuffleArray(selectedOptions);
+
+          return selectedOptions;
         }
 
         function displayQuiz(questions) {
@@ -214,12 +275,7 @@
               question["QuestionText"]
             }</p>`;
 
-            const options = [
-              ...optionSet[question["optionSet"]],
-              question["rightAnswer"],
-            ];
-            shuffleArray(options);
-
+            const options = getOptions(question);
             const explanation = question["Explanation"] || "";
             let answered = false;
             let correctLabelElement;
@@ -235,7 +291,7 @@
               labelElement.htmlFor = `question-${index}-option-${optionIndex}`;
               labelElement.innerHTML = option;
 
-              if (option === question["rightAnswer"]) {
+              if (option === question.rightAnswer) {
                 correctLabelElement = labelElement;
               }
 
@@ -245,7 +301,7 @@
                 }
                 answered = true;
 
-                if (option === question["rightAnswer"]) {
+                if (option === question.rightAnswer) {
                   rightAnswersCount++;
                   labelElement.classList.add("correct-answer");
                   labelElement.innerHTML += " ✅ ";
@@ -293,9 +349,43 @@
         togglePanelButton.addEventListener("click", toggleSidePanel);
         minimizeButton.addEventListener("click", toggleSidePanel);
 
-        shuffleArray(quizData);
-        displayQuiz(quizData);
+        // Fetch data from Firestore
+        try {
+          const quizDoc = await db
+            .collection("quizzes") // Replace with your actual collection name
+            .doc("Europeans") // Replace
+            .get();
+
+          if (quizDoc.exists) {
+            const data = quizDoc.data();
+            quizData = data.quizData;
+            optionSet = data.optionSets;
+          } else {
+            console.error("No quiz data found!");
+          }
+
+          shuffleArray(quizData);
+          displayQuiz(quizData);
+        } catch (error) {
+          console.error("Error fetching data from Firestore:", error);
+        }
       });
     </script>
+
+    <script
+      src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
+      integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"
+      integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"
+      integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
+      crossorigin="anonymous"
+    ></script>
   </body>
 </html>
