@@ -1,391 +1,158 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ml">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Document</title>
+    <title>Live Quiz</title>
+    <link rel="stylesheet" href="style.css" />
 
-    <!-- FontAweome CDN Link for Icons -->
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"
-    />
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
     <style>
-      /* Style the radio container */
-      #quiz-container {
-        font-family: Arial, sans-serif;
-        padding-top: 80px; /* Add padding to avoid overlap with fixed header */
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: "Arial", sans-serif;
+        background: #f5f5f5;
       }
 
-      /* Style the question element to add background color */
-      .question-element {
-        background-color: #e0f2f1; /* Set your preferred background color */
-        padding: 10px;
-        margin-bottom: 15px; /* Add space between each question element */
-        border-radius: 8px;
-      }
-
-      /* Style the label to make it look like a button */
-      label {
-        display: inline-block;
-        padding: 10px 20px;
-        margin: 5px;
-        cursor: pointer;
-        border: 2px solid #4caf50; /* Button border color */
-        background-color: #ffffff; /* Button background color */
-        border-radius: 5px;
-        transition: background-color 0.3s, color 0.3s;
-      }
-
-      /* Style the label when hovered */
-      label:hover {
-        background-color: #4caf50; /* Button background color on hover */
-        color: #ffffff; /* Button text color on hover */
-      }
-
-      /* Hide the actual radio button */
-      input[type="radio"] {
-        display: none;
-      }
-
-      /* Style the radio button label when checked */
-      input[type="radio"]:checked + label {
-        background-color: #4caf50; /* Button background color when selected */
-        color: #ffffff; /* Button text color when selected */
-        border-color: #4caf50; /* Button border color when selected */
-      }
-
-      /* Style the results container to be fixed at the top */
-      #results-container {
-        position: fixed;
-        top: 0;
-        width: 100%;
-        background-color: #ffffff;
-        padding: 10px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        z-index: 1000;
-        font-family: Arial, sans-serif;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-
-      /* Highlight correct answer */
-      .correct-answer {
-        background-color: #4caf50 !important;
-        color: #ffffff !important;
-        border-color: #4caf50 !important;
-      }
-
-      /* Side panel styles */
-      #side-panel {
-        position: fixed;
-        right: 0;
-        top: 0;
-        width: 300px;
-        height: 100%;
-        background-color: #ffffff;
-        box-shadow: -2px 0 4px rgba(0, 0, 0, 0.1);
-        transform: translateX(100%);
-        transition: transform 0.3s ease;
-        z-index: 1001;
-        overflow-y: auto;
+      .header {
+        text-align: center;
         padding: 20px;
+        font-size: 20px;
+        background: #4c4a94;
+        color: white;
       }
 
-      #side-panel.open {
-        transform: translateX(0);
+      .container {
+        padding: 20px;
+        margin-bottom: 100px; /* Give space for bottom bar */
       }
 
-      #toggle-panel-button {
+      #quizBox {
+        margin-top: 20px;
+      }
+
+      /* Floating Button Bar */
+      .bottom-bar {
         position: fixed;
-        right: 10px;
-        top: 50px;
-        z-index: 1002;
-        background-color: #4caf50;
-        color: #ffffff;
+        bottom: 0px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 15px;
+        background: white;
+        padding: 10px 20px;
+        border-radius: 50px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        z-index: 999;
+      }
+
+      .bottom-bar button {
         border: none;
-        padding: 10px;
-        border-radius: 5px;
         cursor: pointer;
-        transition: background-color 0.3s;
+        transition: transform 0.2s;
       }
 
-      #toggle-panel-button:hover {
-        background-color: #45a049;
+      .bottom-bar button:hover {
+        transform: scale(1.14);
       }
 
-      /* Minimize button inside side panel */
-      #side-panel .minimize-button {
-        position: absolute;
-        top: 10px;
-        left: 10px;
-        background-color: #4caf50;
-        color: #ffffff;
-        border: none;
-        padding: 5px 10px;
-        border-radius: 5px;
-        cursor: pointer;
-        transition: background-color 0.3s;
+      .bnav {
+        background: #000;
+        border-radius: 10px;
+        color: #fff;
+        padding: 5px 15px;
+        font-size: 15px;
+        font-family: sans-serif;
+        font-style: normal;
       }
 
-      #side-panel .minimize-button:hover {
-        background-color: #45a049;
+      .b_nav_round {
+        border-radius: 50%;
+      }
+
+      /* Colors */
+      .red {
+        width: 30px;
+        height: 30px;
+        background-color: #ff0000;
+      }
+      .orange {
+        width: 30px;
+        height: 30px;
+        background-color: #ff7e43;
+      }
+      .blue {
+        width: 30px;
+        height: 30px;
+        background-color: #4c4a94;
+      }
+      .green {
+        width: 30px;
+        height: 30px;
+        background-color: #00ff00;
+      }
+      .gray {
+        width: 30px;
+        height: 30px;
+        background-color: #808080;
       }
     </style>
-    <script src="https://www.gstatic.com/firebasejs/8.8.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.8.1/firebase-firestore.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.8.1/firebase-auth.js"></script>
   </head>
 
   <body>
-    <div id="results-container">
-      <div>
-        <p>Right Answers: <span id="right-answers">0</span></p>
-        <p>Wrong Answers: <span id="wrong-answers">0</span></p>
-      </div>
+    <div class="header" id="result">current score : 0/0</div>
+    <div class="header" id="result2">topic score : 0/0</div>
+
+    <div class="container">
+      <div class="topics" id="topicsList"></div>
+
+      <div id="quizBox" class="quiz-box"></div>
     </div>
-    <h1>Quiz</h1>
-    <div id="quiz-container"></div>
-    <div id="side-panel">
-      <button class="minimize-button">Minimize</button>
-      <h2>Wrong Answers</h2>
-      <div id="wrong-answers-list"></div>
+
+    <!-- Floating Buttons -->
+    <div class="bottom-bar">
+      <button class="bnav" onclick="showAllQuestions()">All</button>
+      <button class="bnav" onclick="showRight()">Right</button>
+      <button class="bnav" onclick="showAllWrong()">All_wrong</button>
+      <button class="bnav" onclick="showWrong()">wrong_now</button>
+      <button class="bnav" onclick="showAttempted()">attempted</button>
+      <button class="bnav" onclick="showUnattempted()">Unattempted_All</button>
+      <button class="bnav" onclick="showUnattemptedNow()">
+        Unattempted_now
+      </button>
+
+      <button
+        class="b_nav_round red"
+        onclick="showColorDiv('#ff0000')"
+      ></button>
+      <button
+        class="b_nav_round orange"
+        onclick="showColorDiv('#ff7e43')"
+      ></button>
+      <button
+        class="b_nav_round blue"
+        onclick="showColorDiv('#4c4a94')"
+      ></button>
+      <button
+        class="b_nav_round green"
+        onclick="showColorDiv('#00ff00')"
+      ></button>
+      <button
+        class="b_nav_round gray"
+        onclick="showColorDiv('#808080')"
+      ></button>
     </div>
-    <button id="toggle-panel-button">Show Wrong Answers</button>
+
+    <script src="app.js"></script>
 
     <script>
-      // Replace with your Firebase Config
-      const firebaseConfig = {
-        apiKey: "AIzaSyA88fPkOvcI4QA9qD3ROpk-ay-V6ibQQlc",
-        authDomain: "my-application-7fd40.firebaseapp.com",
-        projectId: "my-application-7fd40",
-        storageBucket: "my-application-7fd40.appspot.com",
-        messagingSenderId: "269589994279",
-        appId: "1:269589994279:web:4c617a622c328a1224e702",
-        measurementId: "G-D8MD1J28GR",
-      };
-      // Initialize Firebase
-      firebase.initializeApp(firebaseConfig);
-
-      firebase.auth().onAuthStateChanged((user) => {
-        if (user) {
-          var uid = user.uid;
-
-          if (user.isAnonymous) {
-            signinState = 0;
-          } else {
-            email = user.email;
-          }
-
-          // ...
-        } else {
-          // User is signed out
-          // ...
-          signinState = 0;
-          //anonymous signin
-
-          firebase
-            .auth()
-            .signInAnonymously()
-            .then(function () {})
-            .catch(function (error) {
-              var errorCode = error.code;
-              var errorMessage = error.message;
-              console.log(errorCode);
-              console.log(errorMessage);
-            });
-        }
-      });
-
-      const db = firebase.firestore();
-
-      document.addEventListener("DOMContentLoaded", async function () {
-        let rightAnswersCount = 0;
-        let wrongAnswersCount = 0;
-        const wrongAnswersList = document.getElementById("wrong-answers-list");
-        const sidePanel = document.getElementById("side-panel");
-        const togglePanelButton = document.getElementById(
-          "toggle-panel-button"
-        );
-        const minimizeButton = document.querySelector(".minimize-button");
-
-        let quizData = [];
-        let optionSet = {};
-
-        function updateResults() {
-          document.getElementById("right-answers").textContent =
-            rightAnswersCount;
-          document.getElementById("wrong-answers").textContent =
-            wrongAnswersCount;
-        }
-
-        function shuffleArray(array) {
-          if (!Array.isArray(array)) {
-            console.error("The provided argument is not an array.");
-            return;
-          }
-
-          for (let i = array.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [array[i], array[j]] = [array[j], array[i]];
-          }
-        }
-
-        function getOptions(question) {
-          if (!optionSet[question.optionSet]) {
-            console.error(`Option set '${question.optionSet}' not found.`);
-            return [];
-          }
-
-          const allOptions = optionSet[question.optionSet].filter(
-            (option) => option !== question.rightAnswer
-          );
-
-          shuffleArray(allOptions);
-
-          const selectedOptions = allOptions.slice(0, 3);
-          selectedOptions.push(question.rightAnswer);
-
-          shuffleArray(selectedOptions);
-
-          return selectedOptions;
-        }
-
-        function displayQuiz(questions) {
-          const quizContainer = document.getElementById("quiz-container");
-
-          if (!Array.isArray(questions)) {
-            console.error("Invalid or missing quiz data.");
-            return;
-          }
-
-          questions.forEach((question, index) => {
-            const questionElement = document.createElement("div");
-            questionElement.classList.add("question-element");
-
-            if (!question.hasOwnProperty("QuestionText")) {
-              console.error(
-                `Missing 'QuestionText' property for question ${index + 1}.`
-              );
-              return;
-            }
-
-            questionElement.innerHTML = `<p>Question ${index + 1}: ${
-              question["QuestionText"]
-            }</p>`;
-
-            const options = getOptions(question);
-            const explanation = question["Explanation"] || "";
-            let answered = false;
-            let correctLabelElement;
-
-            options.forEach((option, optionIndex) => {
-              const optionElement = document.createElement("input");
-              optionElement.type = "radio";
-              optionElement.name = `question-${index}`;
-              optionElement.value = option;
-              optionElement.id = `question-${index}-option-${optionIndex}`;
-
-              const labelElement = document.createElement("label");
-              labelElement.htmlFor = `question-${index}-option-${optionIndex}`;
-              labelElement.innerHTML = option;
-
-              if (option === question.rightAnswer) {
-                correctLabelElement = labelElement;
-              }
-
-              optionElement.addEventListener("click", function () {
-                if (answered) {
-                  return;
-                }
-                answered = true;
-
-                if (option === question.rightAnswer) {
-                  rightAnswersCount++;
-                  labelElement.classList.add("correct-answer");
-                  labelElement.innerHTML += " ✅ ";
-                } else {
-                  wrongAnswersCount++;
-                  labelElement.innerHTML += " ❌ ";
-                  correctLabelElement.classList.add("correct-answer");
-
-                  const wrongAnswerElement = document.createElement("p");
-                  wrongAnswerElement.innerHTML = `<strong>Question ${
-                    index + 1
-                  }:</strong> ${
-                    question["QuestionText"]
-                  }<br><strong>Your answer:</strong> ${option}<br><strong>Correct answer:</strong> ${
-                    question["rightAnswer"]
-                  }`;
-                  wrongAnswersList.appendChild(wrongAnswerElement);
-                }
-
-                if (explanation.trim() !== "") {
-                  const explanationElement = document.createElement("p");
-                  explanationElement.classList.add("explanation");
-                  explanationElement.innerHTML = `Explanation: ${explanation}`;
-                  questionElement.appendChild(explanationElement);
-                }
-
-                updateResults();
-              });
-
-              questionElement.appendChild(optionElement);
-              questionElement.appendChild(labelElement);
-            });
-
-            quizContainer.appendChild(questionElement);
-          });
-        }
-
-        function toggleSidePanel() {
-          sidePanel.classList.toggle("open");
-          togglePanelButton.textContent = sidePanel.classList.contains("open")
-            ? "Hide Wrong Answers"
-            : "Show Wrong Answers";
-        }
-
-        togglePanelButton.addEventListener("click", toggleSidePanel);
-        minimizeButton.addEventListener("click", toggleSidePanel);
-
-        // Fetch data from Firestore
-        try {
-          const quizDoc = await db
-            .collection("quizzes") // Replace with your actual collection name
-            .doc("Europeans") // Replace
-            .get();
-
-          if (quizDoc.exists) {
-            const data = quizDoc.data();
-            quizData = data.quizData;
-            optionSet = data.optionSets;
-          } else {
-            console.error("No quiz data found!");
-          }
-
-          shuffleArray(quizData);
-          displayQuiz(quizData);
-        } catch (error) {
-          console.error("Error fetching data from Firestore:", error);
-        }
-      });
+      function filterBy(type) {
+        console.log("Selected filter:", type);
+        handleFilterChange({ target: { value: type } }); // Call your existing function
+      }
     </script>
-
-    <script
-      src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
-      integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN"
-      crossorigin="anonymous"
-    ></script>
-    <script
-      src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"
-      integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
-      crossorigin="anonymous"
-    ></script>
-    <script
-      src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"
-      integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
-      crossorigin="anonymous"
-    ></script>
   </body>
 </html>
+
