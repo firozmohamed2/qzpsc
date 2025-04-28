@@ -1,0 +1,111 @@
+body {
+  font-family: sans-serif;
+  background: #e6eef7;
+  margin: 0;
+  padding: 0;
+}
+.header {
+  position: sticky;
+  top: 0;
+  background: #007bff;
+  color: white;
+  padding: 15px;
+  font-size: 20px;
+  text-align: center;
+}
+.container {
+  padding: 20px;
+  max-width: 900px;
+  margin: auto;
+}
+.topics {
+  margin: 20px 0;
+}
+.topic {
+  display: inline-block;
+  background: #28a745;
+  color: white;
+  padding: 10px 15px;
+  border-radius: 5px;
+  margin: 5px;
+  cursor: pointer;
+}
+.quiz-box {
+  background: #f9f9ff;
+  padding: 20px;
+  border-radius: 8px;
+  margin-top: 20px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+.question {
+  font-weight: bold;
+  margin-top: 20px;
+  background: transparent;
+}
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  gap: 10px;
+}
+
+.option {
+  background: #eff4f8;
+  border-radius: 8px;
+  padding: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: background 0.3s;
+}
+
+.option:hover {
+  background: #d6d8db;
+}
+
+input[type="radio"] {
+  display: none;
+  margin-right: 10px;
+  transform: scale(1.2);
+  cursor: pointer;
+}
+
+.correct {
+  color: green;
+  font-weight: bold;
+}
+.wrong {
+  color: red;
+  font-weight: bold;
+}
+.unattempted {
+  color: gray;
+}
+
+.shuffle-btn {
+  margin-bottom: 15px;
+  padding: 10px 20px;
+  background: #ffc107;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+}
+.qblock {
+  background: #ffffff;
+  border-radius: 2px;
+  padding: 4px;
+}
+
+.circle {
+  width: 20px;
+  height: 20px;
+  background-color: blue;
+  border-radius: 50%;
+}
+
+.disabled-question {
+  opacity: 0.7;
+  pointer-events: none;
+  background: #c0bbbb5e;
+}
