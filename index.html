@@ -102,8 +102,10 @@
   </head>
 
   <body>
-    <div class="header" id="result">current score : 0/0</div>
-    <div class="header" id="result2">topic score : 0/0</div>
+    <div class="header-container">
+      <div class="header" id="result">current score : 0/0</div>
+      <div class="header" id="result2">topic score : 0/0</div>
+    </div>
 
     <div class="container">
       <div class="topics" id="topicsList"></div>
@@ -119,9 +121,6 @@
       <button class="bnav" onclick="showWrong()">wrong_now</button>
       <button class="bnav" onclick="showAttempted()">attempted</button>
       <button class="bnav" onclick="showUnattempted()">Unattempted_All</button>
-      <button class="bnav" onclick="showUnattemptedNow()">
-        Unattempted_now
-      </button>
 
       <button
         class="b_nav_round red"
@@ -155,4 +154,3 @@
     </script>
   </body>
 </html>
-
