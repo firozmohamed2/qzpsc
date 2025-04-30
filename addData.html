@@ -1,238 +1,67 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ml">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Document</title>
-
-    <!-- FontAweome CDN Link for Icons -->
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"
-    />
+    <title>Admin - Add Quiz</title>
     <style>
-      /* Add your styles here */
       body {
-        font-family: Arial, sans-serif;
-        background-color: #f9f9f9;
-        color: #333;
+        font-family: sans-serif;
+        background: #f8f9fa;
         margin: 0;
-        padding: 0;
+        padding: 20px;
       }
-
-      h1 {
-        background-color: #4caf50;
-        color: white;
-        padding: 10px;
-        text-align: center;
-        margin: 0;
+      .container {
+        max-width: 800px;
+        margin: auto;
       }
-
-      p {
-        color: #4caf50;
-        border-bottom: 2px solid #4caf50;
-        padding-bottom: 5px;
-      }
-
-      form {
-        background-color: white;
-        padding: 10px;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        margin: 10px 0;
-      }
-
-      label {
-        display: block;
-        margin: 5px 0 2px;
-        font-weight: bold;
-      }
-
-      input[type="text"],
       textarea,
-      select {
-        width: 30%;
-        padding: 5px;
-        margin-bottom: 5px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        box-sizing: border-box;
-        font-size: 14px;
-      }
-
-      textarea {
-        resize: vertical;
-      }
-
-      button {
-        background-color: #4caf50;
-        color: white;
-        padding: 5px 10px;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 14px;
-      }
-
-      button:hover {
-        background-color: #45a049;
-      }
-
-      pre {
-        background-color: white;
-        padding: 10px;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        overflow-x: auto;
-        white-space: pre-wrap;
-      }
-
-      .editable-input {
-        background: none;
-        border: none;
-        font-family: inherit;
-        font-size: inherit;
-        color: inherit;
-        padding: 0;
-        margin: 0;
+      input[type="text"] {
         width: 100%;
-        box-sizing: border-box;
-      }
-
-      #option-buttons {
-        margin-top: 5px;
-      }
-
-      #option-buttons button {
-        background-color: #007bff;
-        color: white;
-        border: none;
-        padding: 5px 10px;
-        margin: 2px;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 12px;
-      }
-
-      #option-buttons button:hover {
-        background-color: #0056b3;
-      }
-
-      .toggle-labels {
-        display: flex;
-        align-items: center;
+        padding: 10px;
         margin-top: 10px;
+        font-size: 16px;
       }
-
-      .toggle-labels label {
-        margin-right: 10px;
+      button {
+        padding: 10px 20px;
+        margin-top: 10px;
+        font-size: 16px;
+        cursor: pointer;
       }
-
-      #wrong-answers-section,
-      #option-set-section {
-        display: none;
+      .topics {
+        margin-top: 20px;
       }
-
-      #wrong-answers-section.active,
-      #option-set-section.active {
-        display: block;
-      }
-
-      .inline-fields {
-        display: flex;
-        justify-content: space-between;
-        gap: 5px;
+      .topic {
+        padding: 8px;
+        background: #007bff;
+        color: white;
+        margin: 5px 0;
+        border-radius: 5px;
+        cursor: pointer;
       }
     </style>
 
-    <script src="https://www.gstatic.com/firebasejs/8.8.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.8.1/firebase-firestore.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.8.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
   </head>
   <body>
-    <p>Add Question</p>
-    <label for="document-name">Document Name:</label>
-    <select id="document-name-dropdown"></select>
-    <input
-      type="text"
-      id="document-name"
-      placeholder="Or enter new document name"
-      required
-    /><br />
+    <div class="container">
+      <h1>Add New Quiz</h1>
 
-    <form id="question-form">
-      <label for="question">Question:</label>
-      <input type="text" id="question" required /><br />
+      <input
+        type="text"
+        id="topicName"
+        placeholder="Enter Topic Name (Eg: Kerala History)"
+      />
+      <textarea
+        id="rawInput"
+        placeholder="Paste your quiz data here... (tab-separated)"
+      ></textarea>
+      <button onclick="saveQuiz()">Save Quiz</button>
 
-      <label for="right-answer">Right Answer:</label>
-      <input type="text" id="right-answer" required /><br />
-
-      <div id="wrong-answers-section" class="inline-fields">
-        <label for="wrong-answer-1">Wrong Answer 1:</label>
-        <input type="text" id="wrong-answer-1" />
-
-        <label for="wrong-answer-2">Wrong Answer 2:</label>
-        <input type="text" id="wrong-answer-2" />
-
-        <label for="wrong-answer-3">Wrong Answer 3:</label>
-        <input type="text" id="wrong-answer-3" />
-      </div>
-
-      <div class="toggle-labels">
-        <label>
-          <input type="radio" name="answer-option" id="toggle-wrong-answers" />
-          Add Wrong Answers
-        </label>
-
-        <label>
-          <input
-            type="radio"
-            name="answer-option"
-            id="toggle-option-set"
-            checked
-          />
-          Select Option Set
-        </label>
-      </div>
-
-      <div id="option-set-section">
-        <label for="option-set">Option Set:</label>
-        <select id="option-set"></select
-        ><br />
-        <div id="option-buttons"></div>
-      </div>
-
-      <div>
-        <label for="explanation">Explanation:</label>
-        <textarea id="explanation"></textarea><br />
-      </div>
-      <button type="submit">Add Question</button>
-    </form>
-
-    <div>
-      <h2>Add Option Set</h2>
-      <form id="option-set-form">
-        <label for="option-set-name">Option Set Name:</label>
-        <input type="text" id="option-set-name" required /><br />
-
-        <label for="options">Options (comma-separated):</label>
-        <textarea id="options" required></textarea><br />
-
-        <button type="submit">Add Option Set</button>
-      </form>
+      <div class="topics" id="topicsList"></div>
     </div>
 
-    <h2>Quiz Data</h2>
-    <pre id="quiz-data" contenteditable="true"></pre>
-
-    <h2>Option Sets</h2>
-    <pre id="option-sets" contenteditable="true"></pre>
-
-    <!-- Upload Button -->
-    <button id="upload-button">Upload to Firestore</button>
-
     <script>
-      // Replace with your Firebase Config
       const firebaseConfig = {
         apiKey: "AIzaSyA88fPkOvcI4QA9qD3ROpk-ay-V6ibQQlc",
         authDomain: "my-application-7fd40.firebaseapp.com",
@@ -242,272 +71,81 @@
         appId: "1:269589994279:web:4c617a622c328a1224e702",
         measurementId: "G-D8MD1J28GR",
       };
-      // Initialize Firebase
       firebase.initializeApp(firebaseConfig);
-
-      firebase.auth().onAuthStateChanged((user) => {
-        if (user) {
-          var uid = user.uid;
-
-          if (user.isAnonymous) {
-            signinState = 0;
-          } else {
-            email = user.email;
-          }
-
-          // ...
-        } else {
-          // User is signed out
-          // ...
-          signinState = 0;
-          //anonymous signin
-
-          firebase
-            .auth()
-            .signInAnonymously()
-            .then(function () {})
-            .catch(function (error) {
-              var errorCode = error.code;
-              var errorMessage = error.message;
-              console.log(errorCode);
-              console.log(errorMessage);
-            });
-        }
-      });
-
       const db = firebase.firestore();
 
-      document.addEventListener("DOMContentLoaded", function () {
-        let quizData = [];
-        let optionSets = {};
+      function shuffleArray(array) {
+        return array
+          .map((value) => ({ value, sort: Math.random() }))
+          .sort((a, b) => a.sort - b.sort)
+          .map(({ value }) => value);
+      }
 
-        const questionForm = document.getElementById("question-form");
-        const optionSetForm = document.getElementById("option-set-form");
-        const optionSetSelect = document.getElementById("option-set");
-        const quizDataPre = document.getElementById("quiz-data");
-        const optionSetsPre = document.getElementById("option-sets");
+      function parseQuizData(raw) {
+        const lines = raw.trim().split("\n");
+        return lines
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0)
+          .map((line, idx) => {
+            const parts = line.split("\t");
+            if (parts.length < 6) return null;
+            const options = [
+              { key: "a", text: parts[1] },
+              { key: "b", text: parts[2] },
+              { key: "c", text: parts[3] },
+              { key: "d", text: parts[4] },
+            ];
+            return {
+              id: `q${idx + 1}_${Date.now()}`, // Unique ID
+              question: parts[0],
+              options: shuffleArray(options),
+              answer: parts[5].toLowerCase().trim(),
+            };
+          })
+          .filter((q) => q !== null);
+      }
 
-        const toggleWrongAnswers = document.getElementById(
-          "toggle-wrong-answers"
-        );
-        const toggleOptionSet = document.getElementById("toggle-option-set");
-        const wrongAnswersSection = document.getElementById(
-          "wrong-answers-section"
-        );
-        const optionSetSection = document.getElementById("option-set-section");
-        const optionButtonsDiv = document.getElementById("option-buttons");
-
-        const documentNameDropdown = document.getElementById(
-          "document-name-dropdown"
-        );
-
-        function updateDropdown() {
-          optionSetSelect.innerHTML =
-            '<option value="">Select an option set</option>';
-          for (const key in optionSets) {
-            const option = document.createElement("option");
-            option.value = key;
-            option.textContent = key;
-            optionSetSelect.appendChild(option);
-          }
+      function saveQuiz() {
+        const topic = document.getElementById("topicName").value.trim();
+        const raw = document.getElementById("rawInput").value.trim();
+        if (!topic || !raw) {
+          alert("Please enter topic name and quiz data!");
+          return;
         }
 
-        function displayData() {
-          quizDataPre.textContent = JSON.stringify(quizData, null, 2);
-          optionSetsPre.textContent = JSON.stringify(optionSets, null, 2);
-        }
+        const parsedQuiz = parseQuizData(raw);
 
-        function createOptionButtons(options) {
-          optionButtonsDiv.innerHTML = "";
-          options.sort(); // Sort options alphabetically
-          options.forEach((option) => {
-            const button = document.createElement("button");
-            button.type = "button";
-            button.textContent = option;
-            button.addEventListener("click", () => {
-              document.getElementById("right-answer").value = option;
-            });
-            optionButtonsDiv.appendChild(button);
+        db.collection("quizi")
+          .doc(topic)
+          .set({ questions: parsedQuiz })
+          .then(() => {
+            alert("Quiz saved successfully!");
+            document.getElementById("topicName").value = "";
+            document.getElementById("rawInput").value = "";
+            loadTopics();
+          })
+          .catch((err) => {
+            alert("Error: " + err.message);
           });
-        }
+      }
 
-        toggleWrongAnswers.addEventListener("change", function () {
-          if (toggleWrongAnswers.checked) {
-            wrongAnswersSection.classList.add("active");
-            optionSetSection.classList.remove("active");
-            optionButtonsDiv.innerHTML = "";
-          }
-        });
-
-        toggleOptionSet.addEventListener("change", function () {
-          if (toggleOptionSet.checked) {
-            wrongAnswersSection.classList.remove("active");
-            optionSetSection.classList.add("active");
-            const selectedOptionSet = optionSetSelect.value;
-            if (selectedOptionSet && optionSets[selectedOptionSet]) {
-              createOptionButtons(optionSets[selectedOptionSet]);
-            }
-          }
-        });
-
-        optionSetSelect.addEventListener("change", function () {
-          const selectedOptionSet = optionSetSelect.value;
-          if (selectedOptionSet && optionSets[selectedOptionSet]) {
-            createOptionButtons(optionSets[selectedOptionSet]);
-          } else {
-            optionButtonsDiv.innerHTML = "";
-          }
-        });
-
-        questionForm.addEventListener("submit", function (e) {
-          e.preventDefault();
-          const question = document.getElementById("question").value;
-          const rightAnswer = document.getElementById("right-answer").value;
-          const explanation = document.getElementById("explanation").value;
-
-          if (toggleWrongAnswers.checked) {
-            const wrongAnswer1 =
-              document.getElementById("wrong-answer-1").value;
-            const wrongAnswer2 =
-              document.getElementById("wrong-answer-2").value;
-            const wrongAnswer3 =
-              document.getElementById("wrong-answer-3").value;
-
-            quizData.push({
-              QuestionText: question,
-              rightAnswer: rightAnswer,
-              wrongAnswers: [wrongAnswer1, wrongAnswer2, wrongAnswer3],
-              Explanation: explanation,
+      function loadTopics() {
+        db.collection("quizi")
+          .get()
+          .then((snapshot) => {
+            const list = document.getElementById("topicsList");
+            list.innerHTML = "";
+            snapshot.forEach((doc) => {
+              const div = document.createElement("div");
+              div.className = "topic";
+              div.textContent = doc.id;
+              list.appendChild(div);
             });
-          } else if (toggleOptionSet.checked) {
-            const optionSet = document.getElementById("option-set").value;
+          });
+      }
 
-            if (optionSet in optionSets) {
-              quizData.push({
-                QuestionText: question,
-                rightAnswer: rightAnswer,
-                optionSet: optionSet,
-                Explanation: explanation,
-              });
-            } else {
-              alert("Invalid option set selected.");
-              return;
-            }
-          }
-
-          displayData();
-
-          document.getElementById("wrong-answer-1").value = "";
-          document.getElementById("wrong-answer-2").value = "";
-          document.getElementById("wrong-answer-3").value = "";
-          document.getElementById("question").value = "";
-          document.getElementById("right-answer").value = "";
-          document.getElementById("explanation").value = "";
-        });
-
-        optionSetForm.addEventListener("submit", function (e) {
-          e.preventDefault();
-          const optionSetName =
-            document.getElementById("option-set-name").value;
-          const options = document
-            .getElementById("options")
-            .value.split(",")
-            .map((option) => option.trim());
-
-          if (optionSetName && options.length > 0) {
-            optionSets[optionSetName] = options;
-            updateDropdown();
-            displayData();
-            optionSetForm.reset();
-          } else {
-            alert("Please provide a valid option set name and options.");
-          }
-        });
-
-        updateDropdown();
-        displayData();
-        optionSetSection.classList.add("active"); // Ensure option set section is visible on load
-
-        function uploadData() {
-          let documentName = document.getElementById("document-name").value;
-          const selectedDoc = documentNameDropdown.value;
-
-          if (!documentName && !selectedDoc) {
-            alert("Please provide or select a document name.");
-            return;
-          }
-
-          if (!documentName) {
-            documentName = selectedDoc;
-          }
-
-          db.collection("quizzes")
-            .doc(documentName) // use the document name as the document ID
-            .set({
-              quizData: JSON.parse(quizDataPre.textContent),
-              optionSets: JSON.parse(optionSetsPre.textContent),
-            })
-            .then(() => {
-              alert("Document written with ID: " + documentName);
-            })
-            .catch((error) => {
-              console.error("Error adding document: ", error);
-            });
-        }
-
-        document
-          .getElementById("upload-button")
-          .addEventListener("click", uploadData);
-
-        function fetchDocumentNames() {
-          db.collection("quizzes")
-            .get()
-            .then((querySnapshot) => {
-              querySnapshot.forEach((doc) => {
-                const option = document.createElement("option");
-                option.value = doc.id;
-                option.textContent = doc.id;
-                documentNameDropdown.appendChild(option);
-              });
-            });
-        }
-
-        documentNameDropdown.addEventListener("change", function () {
-          const selectedDoc = documentNameDropdown.value;
-          if (selectedDoc) {
-            db.collection("quizzes")
-              .doc(selectedDoc)
-              .get()
-              .then((doc) => {
-                if (doc.exists) {
-                  const data = doc.data();
-                  quizData = data.quizData || [];
-                  optionSets = data.optionSets || {};
-                  displayData();
-                  updateDropdown();
-                }
-              });
-          }
-        });
-
-        fetchDocumentNames();
-      });
+      window.onload = loadTopics;
     </script>
-
-    <script
-      src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
-      integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN"
-      crossorigin="anonymous"
-    ></script>
-    <script
-      src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"
-      integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
-      crossorigin="anonymous"
-    ></script>
-    <script
-      src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"
-      integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
-      crossorigin="anonymous"
-    ></script>
   </body>
 </html>
+
