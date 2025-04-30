@@ -44,101 +44,77 @@ function loadTopics() {
 
 function loadQuiz(topic) {
   currentTopic = topic;
-  db.collection("quizi")
-    .doc(topic)
-    .get()
-    .then((doc) => {
-      if (doc.exists) {
-        quiz = doc.data().questions;
+
+  // Fetch all three things in parallel: quiz questions, attempted, wrong clicks
+  Promise.all([
+    db.collection("quizi").doc(topic).get(),
+    db.collection("attemptedQuestions").doc(topic).get(),
+    db.collection("wrongAnswers").doc(topic).get(),
+  ])
+    .then(([quizDoc, attemptedDoc, wrongClicksDoc]) => {
+      if (quizDoc.exists) {
+        quiz = quizDoc.data().questions;
         shuffleNow = false;
-        loadAttempted(topic);
-        loadWrongClicks(topic);
+      } else {
+        quiz = []; // fallback if quiz not found
       }
-    });
-}
 
-function loadAttempted(topic) {
-  db.collection("attemptedQuestions")
-    .doc(topic)
-    .get()
-    .then((doc) => {
-      answered = doc.exists ? doc.data() : {}; // Store attempted questions
+      answered = attemptedDoc.exists ? attemptedDoc.data() : {};
+      wrongClicks = wrongClicksDoc.exists ? wrongClicksDoc.data() : {};
 
-      displayQuiz(); // Display quiz once attempted data is loaded
-    });
-}
-
-function loadWrongClicks(topic) {
-  db.collection("wrongAnswers")
-    .doc(topic)
-    .get()
-    .then((doc) => {
-      wrongClicks = doc.exists ? doc.data() : {};
-      displayQuiz();
+      displayQuiz(); // ✅ Called only once after everything ready
+    })
+    .catch((error) => {
+      console.error("Error loading quiz data:", error);
     });
 }
 
 function displayQuiz() {
-  const quizBox = document.getElementById("quizBox");
-  quizBox.innerHTML = "";
-  var initialTopicScore = 0;
+  const quizBoxElement = document.getElementById("quizBox");
+  quizBoxElement.innerHTML = "";
 
-  const quizToDisplay = [...quiz];
-  if (shuffleNow) shuffleArray(quizToDisplay);
+  const questionsToShow = [...quiz]; // Copy of quiz array
 
-  quizBox.innerHTML = quizToDisplay
-    .map((q, idx) => {
-      const options = [...q.options];
-      shuffleArray(options); // Always shuffle options!
+  if (shuffleNow) shuffleArray(questionsToShow);
 
-      // Check if question is attempted or unattempted
-      const questionClass = answered[idx] ? "" : "unattempted";
-      const isAttempted = answered[q.id];
-      var wrongColor = wrongClicks[q.id];
+  quizBoxElement.innerHTML = questionsToShow
+    .map((question, index) => {
+      const shuffledOptions = [...question.options];
+      shuffleArray(shuffledOptions);
 
-      if (wrongColor > 3) {
-        const ref = db.collection("wrongAnswers").doc(currentTopic);
+      const hasBeenAttempted = answered[question.id];
+      let wrongClickCount = wrongClicks[question.id];
 
-        ref.set(
-          {
-            [q.id]: 3,
-          },
-          { merge: true }
-        );
-        wrongColor = 3;
-      }
-      if (!isAttempted) {
-        wrongColor = -1;
-      }
-      if (isAttempted && !wrongColor) {
-        wrongColor = 0;
+      if (wrongClickCount > 3) {
+        const wrongAnswersRef = db.collection("wrongAnswers").doc(currentTopic);
+        wrongAnswersRef.set({ [question.id]: 3 }, { merge: true });
+        wrongClickCount = 3;
       }
 
-      if (wrongColor == 1) initialTopicScore++;
+      if (!hasBeenAttempted) {
+        wrongClickCount = -1;
+      }
 
-      const textColor = colorClass(wrongColor);
+      if (hasBeenAttempted && !wrongClickCount) {
+        wrongClickCount = 0;
+      }
+
+      const borderColor = colorClass(wrongClickCount);
 
       return `
-         
-               
-                <div class="qblock" id="question${idx}"  style="  border-left:${textColor} 3px solid;
- margin-bottom:10px;">
-                  
-        <div class="question" id="question_text${idx}" >${idx + 1}. ${
-        q.question
-      } 
-        
-        </div>
-  
-          <div class="options" id="options${idx}">
-            ${options
+        <div class="qblock" id="question${index}" style="border-left:${borderColor} 3px solid; margin-bottom:10px;">
+          <div class="question" id="question_text${index}">
+            ${index + 1}. ${question.question}
+          </div>
+          <div class="options" id="options${index}">
+            ${shuffledOptions
               .map(
-                (opt) => `
-             <div class="option" onclick="document.getElementById('radio${idx}${opt.key}').click();">
-  <input type="radio" id="radio${idx}${opt.key}" name="question${idx}" value="${opt.key}" onclick="checkAnswer(${idx}, '${opt.key}', this)" style="pointer-events: none;">
-  <label for="radio${idx}${opt.key}" style="margin:0;">${opt.text}</label>
-  </div>
-            `
+                (option) => `
+                  <div class="option" onclick="document.getElementById('radio${index}${option.key}').click();">
+                    <input type="radio" id="radio${index}${option.key}" name="question${index}" value="${option.key}" onclick="checkAnswer(${index}, '${option.key}', this)" style="pointer-events: none;">
+                    <label for="radio${index}${option.key}" style="margin:0;">${option.text}</label>
+                  </div>
+                `
               )
               .join("")}
           </div>
@@ -147,8 +123,17 @@ function displayQuiz() {
     })
     .join("");
 
+  // After rendering the quiz, calculate correct answers
+  let correctAnswersCount = 0;
+
+  quiz.forEach((question) => {
+    if (answered[question.id] && !wrongClicks[question.id]) {
+      correctAnswersCount++;
+    }
+  });
+
   updateResult(0);
-  updateTopicResult(initialTopicScore);
+  updateTopicResult(correctAnswersCount);
 }
 
 function checkAnswer(index, selected, element) {
@@ -230,9 +215,15 @@ function updateTopicResult(val) {
 
 function incrementWrongCount(questionId, index) {
   const ref = db.collection("wrongAnswers").doc(currentTopic);
-  var elem = document.getElementById("question" + index);
+  const elem = document.getElementById("question" + index);
 
-  var wrongCountInitial = wrongClicks[questionId] || 0;
+  const previousWrongCount = wrongClicks[questionId] || 0;
+
+  if (previousWrongCount === 0) {
+    updateTopicResult(-1);
+  }
+
+  const wrongCountInitial = previousWrongCount;
   wrongClicksNow[questionId] =
     wrongCountInitial >= 3 ? 3 : wrongCountInitial + 1;
 
@@ -245,38 +236,25 @@ function incrementWrongCount(questionId, index) {
     updateValue = 1;
   }
 
-  console.log("initial " + wrongCountInitial + " and now  " + updateValue);
+  console.log(`Initial wrong: ${wrongCountInitial}, Now: ${updateValue}`);
 
-  // Now update
+  // Update Firestore
   ref.set({ [questionId]: updateValue }, { merge: true });
 
-  switch (updateValue) {
-    case 3:
-      elem.style.borderLeftColor = colorClass(3);
-      break;
-    case 2:
-      elem.style.borderLeftColor = colorClass(2);
-      break;
-    case 1:
-      elem.style.borderLeftColor = colorClass(1);
-      break;
-    case 0:
-      elem.style.borderLeftColor = colorClass(0);
-      break;
-    case -1:
-      elem.style.borderLeftColor = colorClass(0);
-      break;
-    default:
-      elem.style.borderLeftColor = colorClass(3);
-      break;
-  }
-
-  updateTopicResult(-1);
+  elem.style.borderLeftColor = colorClass(updateValue);
 }
 
 function decrementWrongCount(questionId, index) {
   const ref = db.collection("wrongAnswers").doc(currentTopic);
   var elem = document.getElementById("question" + index);
+
+  if (wrongClicks[questionId]) {
+    if (wrongClicks[questionId] == 1) {
+      updateTopicResult(1);
+    }
+  } else {
+    updateTopicResult(0);
+  }
 
   var wrongCountInitial = wrongClicks[questionId] || 0;
   let decrementValue;
@@ -294,10 +272,6 @@ function decrementWrongCount(questionId, index) {
   console.log(
     "  initial " + wrongCountInitial + " and   now  " + decrementValue
   );
-
-  if (decrementValue == 0) {
-    updateTopicResult(1);
-  }
 
   // Now update Firestore
   ref.set({ [questionId]: decrementValue }, { merge: true });
