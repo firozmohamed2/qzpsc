@@ -113,6 +113,30 @@
         border: 1px solid #ddd;
         border-radius: 4px;
       }
+
+      .qblock {
+        position: relative;
+        padding-left: 12px; /* Make space for progress bar */
+      }
+
+      .progress-bar {
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        width: 10px;
+        background: #4caf50;
+        transition: height 0.3s;
+        border-radius: 0 0 0 5px;
+      }
+
+      .filter-container {
+        margin: 15px 0;
+      }
+      #scoreFilter {
+        padding: 8px;
+        border-radius: 4px;
+        border: 1px solid #ddd;
+      }
     </style>
   </head>
   <body>
@@ -120,6 +144,15 @@
     <div id="scoreDisplay">Score: 0</div>
     <div id="progressDisplay">Progress Score: 0</div>
     <div id="topicsList"></div>
+    <div class="filter-container">
+      <select id="scoreFilter" onchange="filterQuestionsByScore()">
+        <option value="all">All Questions</option>
+        <option value="-1">Score -1</option>
+        <option value="-2">Score -2</option>
+        <option value="-3">Score -3</option>
+      </select>
+    </div>
+
     <button onclick="shuffleQuestions()" class="shuffle_button">🔀</button>
     <div id="quizBox"></div>
 
@@ -196,6 +229,29 @@
           });
       }
 
+      async function filterQuestionsByScore() {
+        const filterValue = document.getElementById("scoreFilter").value;
+        const progressRef = db
+          .collection("userQuestionProgress")
+          .doc(currentTopic);
+        const doc = await progressRef.get();
+        const progressData = doc.exists ? doc.data() : {};
+
+        const questionBlocks = document.querySelectorAll(".qblock");
+
+        questionBlocks.forEach((block) => {
+          const questionId = block.id.replace("q-", "");
+          const score = progressData[questionId] || 0;
+
+          if (filterValue === "all") {
+            block.style.display = "block";
+          } else {
+            const targetScore = parseInt(filterValue);
+            block.style.display = score === targetScore ? "block" : "none";
+          }
+        });
+      }
+
       // Track correct answers in Firestore
       // Modified trackCorrectAnswers function with logging
       const trackCorrectAnswers = (questionId, isCorrect) => {
@@ -209,14 +265,24 @@
 
           if (isCorrect) {
             // Increment correct count (max 4)
-            newValue = Math.min(oldValue + 1, 4);
+            if (oldValue < 0) {
+              newValue = 1;
+            } else {
+              newValue = Math.min(oldValue + 1, 4);
+            }
             if (oldValue === 3 && newValue === 4) {
               progressScore++;
               updateProgressDisplay();
             }
           } else {
+            if (oldValue > 0) {
+              newValue = -1;
+            } else {
+              newValue = Math.max(oldValue - 1, -3);
+            }
+
             // Set to 0 if wrong
-            newValue = 0;
+
             if (oldValue === 4) {
               progressScore--;
               updateProgressDisplay();
@@ -311,6 +377,10 @@
           questionBlock.className = "qblock";
           questionBlock.id = `q-${question.id}`;
 
+          const progressBar = document.createElement("div");
+          progressBar.className = "progress-bar";
+          questionBlock.appendChild(progressBar);
+
           const btnContainer = document.createElement("div");
           btnContainer.className = "question-buttons";
 
@@ -343,7 +413,9 @@
           const optionsContainer = document.createElement("div");
           optionsContainer.className = "options";
 
-          question.options.forEach((option) => {
+          const shuffledOptions = shuffleArray([...question.options]);
+
+          shuffledOptions.forEach((option) => {
             const optionElement = document.createElement("div");
             optionElement.className = "option";
             optionElement.innerHTML = `
@@ -360,8 +432,26 @@
 
           questionBlock.appendChild(optionsContainer);
           checkStarredStatus(question.id, starBtn);
+          updateProgressBar(question.id, progressBar);
+
           quizContainer.appendChild(questionBlock);
         });
+      }
+
+      async function updateProgressBar(questionId, progressBar) {
+        const doc = await db
+          .collection("userQuestionProgress")
+          .doc(currentTopic)
+          .get();
+        var score = doc.exists ? doc.data()[questionId] || 0 : 0;
+        if (score < 0) {
+          score = -1 * score;
+          progressBar.style.height = `${score * 25}%`; // 0%, 25%, 50%, 75%, 100%
+          progressBar.style.backgroundColor = "red";
+        } else {
+          progressBar.style.height = `${score * 25}%`; // 0%, 25%, 50%, 75%, 100%
+          progressBar.style.backgroundColor = "#4caf50";
+        }
       }
 
       // Shuffle questions
@@ -394,11 +484,12 @@
       }
 
       function shuffleArray(array) {
-        for (let i = array.length - 1; i > 0; i--) {
+        const newArray = [...array];
+        for (let i = newArray.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
-          [array[i], array[j]] = [array[j], array[i]];
+          [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
         }
-        return array;
+        return newArray;
       }
 
       // Add this to your existing code
@@ -474,46 +565,46 @@
         qBlock.appendChild(btnContainer);
       }
 
-      function saveQuestionEdits(qBlock, questionId, questionInput, options) {
-        const newQuestionText = questionInput.value;
-        const editButton = document.getElementById(`edit-btn-${questionId}`);
-        editButton.style.display = "block";
-        const newOptions = Array.from(options).map((opt) => ({
-          text: opt.querySelector("input").value,
-          key: opt.closest(".option").querySelector('input[type="radio"]')
-            .value,
-        }));
+      //   function saveQuestionEdits(qBlock, questionId, questionInput, options) {
+      //     const newQuestionText = questionInput.value;
+      //     const editButton = document.getElementById(`edit-btn-${questionId}`);
+      //     editButton.style.display = "block";
+      //     const newOptions = Array.from(options).map((opt) => ({
+      //       text: opt.querySelector("input").value,
+      //       key: opt.closest(".option").querySelector('input[type="radio"]')
+      //         .value,
+      //     }));
 
-        // Update Firestore
-        db.collection("quizi")
-          .doc(currentTopic)
-          .get()
-          .then((doc) => {
-            const questions = doc.data().questions;
-            const questionIndex = questions.findIndex(
-              (q) => q.id === questionId
-            );
+      //     // Update Firestore
+      //     db.collection("quizi")
+      //       .doc(currentTopic)
+      //       .get()
+      //       .then((doc) => {
+      //         const questions = doc.data().questions;
+      //         const questionIndex = questions.findIndex(
+      //           (q) => q.id === questionId
+      //         );
 
-            if (questionIndex !== -1) {
-              questions[questionIndex].question = newQuestionText;
-              questions[questionIndex].options = newOptions;
+      //         if (questionIndex !== -1) {
+      //           questions[questionIndex].question = newQuestionText;
+      //           questions[questionIndex].options = newOptions;
 
-              db.collection("quizi")
-                .doc(currentTopic)
-                .update({
-                  questions: questions,
-                })
-                .then(() => {
-                  // Re-render the question to exit edit mode
-                  loadQuestions(currentTopic);
-                })
-                .catch((error) => {
-                  console.error("Error updating question:", error);
-                  alert("Failed to save changes. Please try again.");
-                });
-            }
-          });
-      }
+      //           db.collection("quizi")
+      //             .doc(currentTopic)
+      //             .update({
+      //               questions: questions,
+      //             })
+      //             .then(() => {
+      //               // Re-render the question to exit edit mode
+      //               loadQuestions(currentTopic);
+      //             })
+      //             .catch((error) => {
+      //               console.error("Error updating question:", error);
+      //               alert("Failed to save changes. Please try again.");
+      //             });
+      //         }
+      //       });
+      //   }
 
       // Simple auth check - replace with your actual auth logic
       function isEditor() {
