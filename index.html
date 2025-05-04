@@ -1,156 +1,457 @@
 <!DOCTYPE html>
-<html lang="ml">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Live Quiz</title>
-    <link rel="stylesheet" href="style.css" />
-
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quiz App</title>
     <style>
       body {
+        font-family: Arial, sans-serif;
         margin: 0;
-        padding: 0;
-        font-family: "Arial", sans-serif;
-        background: #f5f5f5;
-      }
-
-      .header {
-        text-align: center;
         padding: 20px;
-        font-size: 20px;
-        background: #4c4a94;
-        color: white;
+        background-color: #f5f5f5;
       }
 
-      .container {
-        padding: 20px;
-        margin-bottom: 100px; /* Give space for bottom bar */
-      }
-
-      #quizBox {
+      #topicsList {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
         margin-top: 20px;
       }
 
-      /* Floating Button Bar */
-      .bottom-bar {
-        position: fixed;
-        bottom: 0px;
-        left: 50%;
-        transform: translateX(-50%);
-        display: flex;
-        gap: 15px;
-        background: white;
-        padding: 10px 20px;
-        border-radius: 50px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-        z-index: 999;
-      }
-
-      .bottom-bar button {
-        border: none;
+      .topic {
+        background-color: #4caf50;
+        color: white;
+        padding: 10px 15px;
+        border-radius: 5px;
         cursor: pointer;
-        transition: transform 0.2s;
+        transition: background-color 0.3s;
       }
 
-      .bottom-bar button:hover {
-        transform: scale(1.14);
+      .topic:hover {
+        background-color: #45a049;
       }
 
-      .bnav {
-        background: #000;
-        border-radius: 10px;
-        color: #fff;
-        padding: 5px 15px;
-        font-size: 15px;
-        font-family: sans-serif;
-        font-style: normal;
+      .qblock {
+        background: white;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-radius: 5px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       }
 
-      .b_nav_round {
-        border-radius: 50%;
+      .question {
+        font-weight: bold;
+        margin-bottom: 10px;
       }
 
-      /* Colors */
-      .red {
-        width: 30px;
-        height: 30px;
-        background-color: #ff0000;
+      .options {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
       }
-      .orange {
-        width: 30px;
-        height: 30px;
-        background-color: #ff7e43;
+
+      .option {
+        padding: 8px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.2s;
       }
-      .blue {
-        width: 30px;
-        height: 30px;
-        background-color: #4c4a94;
+
+      .option:hover {
+        background-color: #f0f0f0;
       }
-      .green {
-        width: 30px;
-        height: 30px;
-        background-color: #00ff00;
+
+      .correct {
+        background-color: #d4edda;
       }
-      .gray {
-        width: 30px;
-        height: 30px;
-        background-color: #808080;
+
+      .incorrect {
+        background-color: #f8d7da;
+      }
+
+      #scoreDisplay {
+        font-size: 18px;
+        font-weight: bold;
+        margin: 15px 0;
+      }
+      .shuffle_button {
+        margin: 10px;
+        padding: 8px 16px;
+        font-size: 30px;
+        font-weight: bold;
+        border: 0px;
       }
     </style>
   </head>
-
   <body>
-    <div class="header-container">
-      <div class="header" id="result">current score : 0/0</div>
-      <div class="header" id="result2">topic score : 0/0</div>
-    </div>
+    <h1>Quiz App</h1>
+    <div id="scoreDisplay">Score: 0</div>
+    <div id="progressDisplay">Progress Score: 0</div>
+    <div id="topicsList"></div>
+    <button onclick="shuffleQuestions()" class="shuffle_button">🔀</button>
+    <div id="quizBox"></div>
 
-    <div class="container">
-      <div class="topics" id="topicsList"></div>
-
-      <div id="quizBox" class="quiz-box"></div>
-    </div>
-
-    <!-- Floating Buttons -->
-    <div class="bottom-bar">
-      <button class="bnav" onclick="showAllQuestions()">All</button>
-      <button class="bnav" onclick="showRight()">Right</button>
-      <button class="bnav" onclick="showAllWrong()">All_wrong</button>
-      <button class="bnav" onclick="showWrong()">wrong_now</button>
-      <button class="bnav" onclick="showAttempted()">attempted</button>
-      <button class="bnav" onclick="showUnattempted()">Unattempted_All</button>
-
-      <button
-        class="b_nav_round red"
-        onclick="showColorDiv('#ff0000')"
-      ></button>
-      <button
-        class="b_nav_round orange"
-        onclick="showColorDiv('#ff7e43')"
-      ></button>
-      <button
-        class="b_nav_round blue"
-        onclick="showColorDiv('#4c4a94')"
-      ></button>
-      <button
-        class="b_nav_round green"
-        onclick="showColorDiv('#00ff00')"
-      ></button>
-      <button
-        class="b_nav_round gray"
-        onclick="showColorDiv('#808080')"
-      ></button>
-    </div>
-
-    <script src="app.js"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
     <script>
-      function filterBy(type) {
-        console.log("Selected filter:", type);
-        handleFilterChange({ target: { value: type } }); // Call your existing function
+      // Firebase configuration
+      const firebaseConfig = {
+        apiKey: "AIzaSyA88fPkOvcI4QA9qD3ROpk-ay-V6ibQQlc",
+        authDomain: "my-application-7fd40.firebaseapp.com",
+        projectId: "my-application-7fd40",
+        storageBucket: "my-application-7fd40.appspot.com",
+        messagingSenderId: "269589994279",
+        appId: "1:269589994279:web:4c617a622c328a1224e702",
+        measurementId: "G-D8MD1J28GR",
+      };
+
+      // Initialize Firebase
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.firestore();
+
+      // DOM Elements
+      const topicsContainer = document.getElementById("topicsList");
+      const quizContainer = document.getElementById("quizBox");
+      const scoreDisplay = document.getElementById("scoreDisplay");
+      let progressScore = 0;
+      let quizSize = 0;
+
+      // State
+      let currentTopic = "";
+      let currentScore = 0;
+
+      // Load all available topics
+      function loadTopics() {
+        db.collection("quizi")
+          .get()
+          .then((snapshot) => {
+            topicsContainer.innerHTML = "";
+            snapshot.forEach((doc) => {
+              const topicBtn = document.createElement("div");
+              topicBtn.className = "topic";
+              topicBtn.textContent = doc.id;
+              topicBtn.onclick = () => loadQuestions(doc.id);
+              topicsContainer.appendChild(topicBtn);
+            });
+          });
       }
+
+      // Load questions for selected topic
+      function loadQuestions(topic) {
+        currentTopic = topic;
+        currentScore = 0;
+        quizContainer.innerHTML = "<p>Loading questions...</p>";
+
+        db.collection("quizi")
+          .doc(topic)
+          .get()
+          .then((doc) => {
+            if (!doc.exists) {
+              quizContainer.innerHTML =
+                "<p>No questions found for this topic.</p>";
+              return;
+            }
+
+            const questions = doc.data().questions;
+            quizSize = questions.length;
+            console.log(questions.length);
+            scoreDisplay.textContent = `Score: ${currentScore} / ${quizSize}`;
+
+            renderQuestions(questions);
+            updateProgressCountInitial();
+          });
+      }
+
+      // Track correct answers in Firestore
+      // Modified trackCorrectAnswers function with logging
+      const trackCorrectAnswers = (questionId, isCorrect) => {
+        const correctAnswersRef = db
+          .collection("userQuestionProgress")
+          .doc(currentTopic);
+
+        correctAnswersRef.get().then((doc) => {
+          const oldValue = doc.exists ? doc.data()[questionId] || 0 : 0;
+          let newValue;
+
+          if (isCorrect) {
+            // Increment correct count (max 4)
+            newValue = Math.min(oldValue + 1, 4);
+            if (oldValue === 3 && newValue === 4) {
+              progressScore++;
+              updateProgressDisplay();
+            }
+          } else {
+            // Set to 0 if wrong
+            newValue = 0;
+            if (oldValue === 4) {
+              progressScore--;
+              updateProgressDisplay();
+            }
+          }
+
+          // Log the progress change
+          console.log(
+            `Progress update for ${questionId}: ${oldValue} → ${newValue}`
+          );
+
+          // Update Firestore
+          correctAnswersRef.set(
+            {
+              [questionId]: newValue,
+            },
+            { merge: true }
+          );
+        });
+      };
+
+      function updateProgressCountInitial() {
+        const correctAnswersRef = db
+          .collection("userQuestionProgress")
+          .doc(currentTopic);
+
+        correctAnswersRef.get().then((doc) => {
+          if (doc.exists) {
+            const progressData = doc.data();
+            // Count how many questions have value 4
+            progressScore = Object.values(progressData).filter(
+              (val) => val === 4
+            ).length;
+            updateProgressDisplay();
+            console.log(
+              `Mastered questions count: ${progressScore} / ${quizSize}`
+            );
+          } else {
+            progressScore = 0;
+            updateProgressDisplay();
+          }
+        });
+      }
+
+      // The rest of your existing code remains the same...
+
+      // Handle option selection
+      function handleOptionClick(questionId, selectedKey, correctAnswer) {
+        return function (event) {
+          const isCorrect = selectedKey === correctAnswer;
+
+          // Track the answer
+          trackCorrectAnswers(questionId, isCorrect);
+
+          // Update score if correct
+          if (isCorrect) {
+            currentScore++;
+            scoreDisplay.textContent = `Score: ${currentScore} / ${quizSize}`;
+          }
+
+          // Visual feedback
+          const options = document.querySelectorAll(
+            `input[name="q-${questionId}"]`
+          );
+          options.forEach((option) => {
+            const parent = option.parentElement;
+            parent.classList.remove("correct", "incorrect");
+            if (option.value === correctAnswer) {
+              parent.classList.add("correct");
+            }
+            if (option.value === selectedKey && !isCorrect) {
+              parent.classList.add("incorrect");
+            }
+          });
+
+          // Log details to console
+          console.log({
+            questionId,
+            selectedAnswer: selectedKey,
+            correctAnswer,
+            isCorrect,
+          });
+        };
+      }
+
+      // Render questions to the DOM
+      function renderQuestions(questions) {
+        quizContainer.innerHTML = "";
+
+        questions.forEach((question) => {
+          const questionBlock = document.createElement("div");
+          questionBlock.className = "qblock";
+          questionBlock.id = `q-${question.id}`;
+
+          const questionText = document.createElement("div");
+          questionText.className = "question";
+          questionText.textContent = question.question;
+          questionBlock.appendChild(questionText);
+
+          const optionsContainer = document.createElement("div");
+          optionsContainer.className = "options";
+          const shuffledOptions = [...question.options];
+          shuffleArray(shuffledOptions);
+
+          shuffledOptions.forEach((option) => {
+            const optionElement = document.createElement("div");
+            optionElement.className = "option";
+            optionElement.innerHTML = `
+                        <input type="radio" name="q-${question.id}" value="${option.key}">
+                        <span>${option.text}</span>
+                    `;
+            optionElement.onclick = handleOptionClick(
+              question.id,
+              option.key,
+              question.answer
+            );
+            optionsContainer.appendChild(optionElement);
+          });
+
+          questionBlock.appendChild(optionsContainer);
+          quizContainer.appendChild(questionBlock);
+        });
+      }
+
+      // Shuffle questions
+      function shuffleQuestions() {
+        const quizBox = document.getElementById("quizBox");
+        const questionBlocks = Array.from(quizBox.querySelectorAll(".qblock"));
+
+        // Remove all questions from container
+        quizBox.innerHTML = "";
+
+        // Shuffle the array
+        for (let i = questionBlocks.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [questionBlocks[i], questionBlocks[j]] = [
+            questionBlocks[j],
+            questionBlocks[i],
+          ];
+        }
+
+        // Re-append the shuffled questions
+        questionBlocks.forEach((block) => {
+          quizBox.appendChild(block);
+        });
+      }
+
+      function updateProgressDisplay() {
+        if (progressDisplay) {
+          progressDisplay.textContent = `Mastered: ${progressScore} / ${quizSize}`;
+        }
+      }
+
+      function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+      }
+
+      // Add this to your existing code
+      function enableQuestionEditing() {
+        const questions = document.querySelectorAll(".qblock");
+
+        questions.forEach((qBlock) => {
+          // Add edit button
+          const editBtn = document.createElement("button");
+          editBtn.textContent = "✏️";
+          editBtn.className = "edit-btn";
+          editBtn.onclick = () => editQuestion(qBlock);
+          qBlock.prepend(editBtn);
+        });
+      }
+
+      function editQuestion(qBlock) {
+        const questionId = qBlock.id.replace("q-", "");
+        const questionText = qBlock.querySelector(".question");
+        const options = qBlock.querySelectorAll(".option span");
+
+        // Create editable question field
+        const questionInput = document.createElement("input");
+        questionInput.type = "text";
+        questionInput.value = questionText.textContent;
+        questionText.textContent = "";
+        questionText.appendChild(questionInput);
+
+        // Create editable options
+        options.forEach((opt, index) => {
+          const optInput = document.createElement("input");
+          optInput.type = "text";
+          optInput.value = opt.textContent;
+          opt.textContent = "";
+          opt.appendChild(optInput);
+        });
+
+        // Add save button
+        const saveBtn = document.createElement("button");
+        saveBtn.textContent = "💾 Save";
+        saveBtn.className = "save-btn";
+        saveBtn.onclick = () =>
+          saveQuestionEdits(qBlock, questionId, questionInput, options);
+        qBlock.appendChild(saveBtn);
+      }
+
+      function saveQuestionEdits(qBlock, questionId, questionInput, options) {
+        const newQuestionText = questionInput.value;
+        const newOptions = Array.from(options).map((opt) => ({
+          text: opt.querySelector("input").value,
+          key: opt.closest(".option").querySelector('input[type="radio"]')
+            .value,
+        }));
+
+        // Update Firestore
+        db.collection("quizi")
+          .doc(currentTopic)
+          .get()
+          .then((doc) => {
+            const questions = doc.data().questions;
+            const questionIndex = questions.findIndex(
+              (q) => q.id === questionId
+            );
+
+            if (questionIndex !== -1) {
+              questions[questionIndex].question = newQuestionText;
+              questions[questionIndex].options = newOptions;
+
+              db.collection("quizi")
+                .doc(currentTopic)
+                .update({
+                  questions: questions,
+                })
+                .then(() => {
+                  // Refresh the display
+                  loadQuestions(currentTopic);
+                });
+            }
+          });
+      }
+
+      // Add this CSS
+      const style = document.createElement("style");
+      style.textContent = `
+  .edit-btn, .save-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    margin-right: 10px;
+  }
+  .edit-btn:hover, .save-btn:hover {
+    opacity: 0.7;
+  }
+  .qblock input[type="text"] {
+    width: 100%;
+    padding: 5px;
+    margin: 5px 0;
+  }
+`;
+      document.head.appendChild(style);
+
+      // Call this after rendering questions
+      enableQuestionEditing();
+
+      // Initialize the app
+      window.onload = loadTopics;
     </script>
   </body>
 </html>
