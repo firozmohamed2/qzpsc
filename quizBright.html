@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quiz App - Light Mode</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+      }
+      /* Custom scrollbar for a more integrated light theme look */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #e5e7eb; /* gray-200 */
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #9ca3af; /* gray-400 */
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #6b7280; /* gray-500 */
+      }
+      /* Basic styling for form radio, Tailwind form plugin can enhance this further */
+      .form-radio {
+        appearance: none;
+        padding: 0;
+        display: inline-block;
+        position: relative;
+        width: 1.25em;
+        height: 1.25em;
+        border: 2px solid #d1d5db; /* gray-300 */
+        border-radius: 50%;
+        cursor: pointer;
+        transition: background-color 0.2s, border-color 0.2s;
+      }
+      .form-radio:checked {
+        background-color: #3b82f6; /* blue-500 */
+        border-color: #3b82f6; /* blue-500 */
+      }
+      .form-radio:checked::before {
+        content: "";
+        display: block;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0.5em;
+        height: 0.5em;
+        border-radius: 50%;
+        background-color: white;
+        transform: translate(-50%, -50%);
+      }
+      .form-radio:focus {
+        outline: none;
+        /* focus:ring-2 focus:ring-offset-2 focus:ring-offset-white focus:ring-blue-600 */
+        box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #2563eb;
+      }
+
+      /* Icon placeholders - replace with actual SVGs or icon font classes */
+      .icon-star-empty::before {
+        content: "☆";
+      }
+      .icon-star-filled::before {
+        content: "★";
+      }
+      .icon-save-empty::before {
+        content: "💾"; /* Or a bookmark icon */
+      }
+      .icon-save-filled::before {
+        content: "☑️"; /* Or a filled bookmark icon */
+      }
+      .icon-edit::before {
+        content: "✏️";
+      }
+      .icon-shuffle::before {
+        content: "🔀";
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100 text-gray-800 min-h-screen antialiased">
+    <header
+      id="scoreContainer"
+      class="sticky top-0 bg-gray-200 shadow-xl p-4 z-50 mb-6"
+    >
+      <div
+        class="container mx-auto flex flex-wrap justify-between items-center"
+      >
+        <div id="scoreDisplay" class="text-xl font-semibold text-gray-900">
+          Score: 0
+        </div>
+        <div id="progressDisplay" class="text-xl font-semibold text-gray-900">
+          Mastered: 0
+        </div>
+      </div>
+    </header>
+
+    <main class="container mx-auto px-4 pb-8">
+      <h1 class="text-4xl font-bold text-center mb-8 text-gray-900">
+        Quiz Mastery
+      </h1>
+
+      <section
+        id="topicsList"
+        class="flex flex-wrap gap-3 mb-8 justify-center"
+      ></section>
+
+      <section
+        class="filter-container mb-6 flex flex-col sm:flex-row justify-between items-center gap-4 p-4 bg-gray-200 rounded-lg shadow-md"
+      >
+        <select
+          id="scoreFilter"
+          onchange="filterQuestionsByScore()"
+          class="bg-white border border-gray-300 text-gray-800 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full sm:w-auto p-2.5"
+        >
+          <option value="all">All Questions</option>
+          <option value="-1">Score -1</option>
+          <option value="-2">Score -2</option>
+          <option value="-3">Score -3</option>
+        </select>
+
+        <div class="flex items-center space-x-2">
+          <input
+            id="studyModeToggle"
+            type="checkbox"
+            value=""
+            class="w-4 h-4 text-blue-600 bg-gray-300 border-gray-400 rounded focus:ring-blue-600 ring-offset-white focus:ring-2 cursor-pointer"
+            onchange="toggleStudyMode()"
+          />
+          <label
+            for="studyModeToggle"
+            class="text-sm font-medium text-gray-800 cursor-pointer"
+            >Enable Study Mode</label
+          >
+        </div>
+
+        <button
+          onclick="shuffleQuestions()"
+          class="shuffle_button bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-100"
+        >
+          <span class="icon-shuffle text-xl"></span> Shuffle Questions
+        </button>
+      </section>
+
+      <section id="quizBox" class="space-y-6"></section>
+    </main>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+    <script>
+      // Firebase configuration
+      const firebaseConfig = {
+        apiKey: "AIzaSyA88fPkOvcI4QA9qD3ROpk-ay-V6ibQQlc", // Replace with your actual API key
+        authDomain: "my-application-7fd40.firebaseapp.com",
+        projectId: "my-application-7fd40",
+        storageBucket: "my-application-7fd40.appspot.com",
+        messagingSenderId: "269589994279",
+        appId: "1:269589994279:web:4c617a622c328a1224e702",
+        measurementId: "G-D8MD1J28GR",
+      };
+
+      // Initialize Firebase
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.firestore();
+
+      // DOM Elements
+      const topicsContainer = document.getElementById("topicsList");
+      const quizContainer = document.getElementById("quizBox");
+      const scoreDisplay = document.getElementById("scoreDisplay");
+      const progressDisplay = document.getElementById("progressDisplay");
+      let progressScore = 0;
+      let quizSize = 0;
+
+      // State
+      let currentTopic = "";
+      let currentScore = 0;
+      let questionsCache = [];
+      let isStudyMode = false; // Default to Quiz Mode
+
+      function toggleStudyMode() {
+        isStudyMode = document.getElementById("studyModeToggle").checked;
+        if (questionsCache.length > 0) {
+          const isCurrentlySavedView = currentTopic === "Saved Questions";
+          renderQuestionList(questionsCache, isCurrentlySavedView);
+        }
+      }
+
+      function loadTopics() {
+        db.collection("quizi")
+          .get()
+          .then((snapshot) => {
+            topicsContainer.innerHTML = "";
+
+            // Saved Questions button colors remain suitable
+            const savedTopicBtn = document.createElement("div");
+            savedTopicBtn.className =
+              "bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg cursor-pointer transition-colors duration-200 shadow-md text-sm font-medium";
+            savedTopicBtn.textContent = "Saved Questions";
+            savedTopicBtn.onclick = () => loadSavedQuestions();
+            topicsContainer.appendChild(savedTopicBtn);
+
+            snapshot.forEach((doc) => {
+              if (doc.id !== "Saved Questions") {
+                // Changed topic button colors
+                const topicBtn = document.createElement("div");
+                topicBtn.className =
+                  "bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg cursor-pointer transition-colors duration-200 shadow-md text-sm font-medium";
+                topicBtn.textContent = doc.id;
+                topicBtn.onclick = () => loadQuestions(doc.id);
+                topicsContainer.appendChild(topicBtn);
+              }
+            });
+          })
+          .catch((error) => {
+            console.error("Error loading topics: ", error);
+            // Changed error text color for better contrast
+            topicsContainer.innerHTML =
+              "<p class='text-red-700'>Error loading topics. Please try again later.</p>";
+          });
+      }
+
+      function loadSavedQuestions() {
+        currentTopic = "Saved Questions";
+        // Changed text color for loading/empty messages
+        quizContainer.innerHTML =
+          "<p class='text-center text-gray-600 py-8'>Loading saved questions...</p>";
+        questionsCache = [];
+
+        db.collection("quizi")
+          .doc("Saved Questions")
+          .get()
+          .then((doc) => {
+            if (
+              !doc.exists ||
+              !doc.data().questions ||
+              doc.data().questions.length === 0
+            ) {
+              // Changed text color for loading/empty messages
+              quizContainer.innerHTML =
+                "<p class='text-center text-gray-600 py-8'>No saved questions found.</p>";
+              quizSize = 0;
+              currentScore = 0;
+              scoreDisplay.textContent = `Score: 0 / 0`;
+              progressDisplay.textContent = `Viewing: 0 saved`;
+              return;
+            }
+            const savedQuestionIds = doc.data().questions;
+            if (savedQuestionIds.length === 0) {
+              // Changed text color for loading/empty messages
+              quizContainer.innerHTML =
+                "<p class='text-center text-gray-600 py-8'>No saved questions found.</p>";
+              return;
+            }
+
+            db.collection("quizi")
+              .get()
+              .then((snapshot) => {
+                const allQuestions = [];
+                snapshot.forEach((topicDoc) => {
+                  if (topicDoc.id === "Saved Questions") return;
+                  const topicData = topicDoc.data();
+                  if (topicData && topicData.questions) {
+                    topicData.questions.forEach((q) => {
+                      if (savedQuestionIds.includes(q.id)) {
+                        allQuestions.push({ ...q, topic: topicDoc.id });
+                      }
+                    });
+                  }
+                });
+
+                if (allQuestions.length === 0) {
+                  // Changed text color for loading/empty messages
+                  quizContainer.innerHTML =
+                    "<p class='text-center text-gray-600 py-8'>No saved questions found (they might have been deleted).</p>";
+                  quizSize = 0;
+                  currentScore = 0;
+                  scoreDisplay.textContent = `Score: 0 / 0`;
+                  progressDisplay.textContent = `Viewing: 0 saved`;
+                  return;
+                }
+                questionsCache = allQuestions;
+                quizSize = allQuestions.length;
+                currentScore = 0;
+                scoreDisplay.textContent = `Score: ${currentScore} / ${quizSize}`;
+                progressDisplay.textContent = `Viewing: ${quizSize} saved`;
+                renderQuestionList(allQuestions, true); // true for isSavedView
+              });
+          })
+          .catch((error) => {
+            console.error("Error loading saved questions: ", error);
+            // Changed error text color
+            quizContainer.innerHTML =
+              "<p class='text-red-700 text-center py-8'>Error loading saved questions.</p>";
+          });
+      }
+
+      function loadQuestions(topic) {
+        currentTopic = topic;
+        currentScore = 0;
+        console.log("Initializing currentScore to 0 for topic:", topic);
+        // Changed text color for loading/empty messages
+        quizContainer.innerHTML =
+          "<p class='text-center text-gray-600 py-8'>Loading questions...</p>";
+        questionsCache = [];
+
+        db.collection("quizi")
+          .doc(topic)
+          .get()
+          .then((doc) => {
+            if (
+              !doc.exists ||
+              !doc.data().questions ||
+              doc.data().questions.length === 0
+            ) {
+              // Changed text color for loading/empty messages
+              quizContainer.innerHTML =
+                "<p class='text-center text-gray-600 py-8'>No questions found for this topic.</p>";
+              quizSize = 0;
+              scoreDisplay.textContent = `Score: ${currentScore} / ${quizSize}`;
+              updateProgressCountInitial();
+              return;
+            }
+            questionsCache = doc.data().questions;
+            quizSize = questionsCache.length;
+            console.log("Setting quizSize to:", quizSize);
+            scoreDisplay.textContent = `Score: ${currentScore} / ${quizSize}`;
+            renderQuestionList(questionsCache, false);
+            updateProgressCountInitial();
+          })
+          .catch((error) => {
+            console.error(`Error loading questions for topic ${topic}: `, error);
+            // Changed error text color
+            quizContainer.innerHTML = `<p class='text-red-700 text-center py-8'>Error loading questions for ${topic}.</p>`;
+          });
+      }
+
+      function renderQuestionList(questionsToRender, isSavedViewFlag) {
+        quizContainer.innerHTML = "";
+        questionsToRender.forEach((question) => {
+          const questionElement = createQuestionElement(
+            question,
+            isSavedViewFlag
+          );
+          quizContainer.appendChild(questionElement);
+          // Call this AFTER appending to ensure progress bar element exists for updateProgressBarUI
+          checkAndApplyAnsweredVisualState(question.id, questionElement);
+        });
+      }
+
+      function createQuestionElement(question, isSavedViewFlag) {
+        // Changed background color for question block
+        const questionBlock = document.createElement("div");
+        questionBlock.className =
+          "bg-white p-5 sm:p-6 rounded-xl shadow-xl relative overflow-hidden question-block";
+        questionBlock.id = `q-${question.id}`;
+
+        // Changed progress bar container background color
+        const progressBarContainer = document.createElement("div");
+        progressBarContainer.className =
+          "absolute left-0 bottom-0 w-full h-1.5 bg-gray-300";
+        const progressBarFill = document.createElement("div");
+        progressBarFill.className = "h-full transition-all duration-300 ease-out";
+        progressBarContainer.appendChild(progressBarFill);
+        questionBlock.appendChild(progressBarContainer);
+
+        const actionsContainer = document.createElement("div");
+        actionsContainer.className =
+          "absolute right-3 top-3 sm:right-4 sm:top-4 flex gap-2 sm:gap-3";
+
+        // Star button colors remain suitable, changed filled color slightly for contrast
+        const starBtn = document.createElement("button");
+        starBtn.className =
+          "text-gray-500 hover:text-yellow-600 text-2xl focus:outline-none transition-colors duration-150";
+        starBtn.innerHTML = `<span class="icon-star-empty" aria-label="Star question"></span>`;
+        starBtn.onclick = (e) => {
+          e.stopPropagation();
+          toggleStar(question.id, starBtn, isSavedViewFlag);
+        }; // Pass flag
+        actionsContainer.appendChild(starBtn);
+
+        // Save button colors remain suitable, changed filled color slightly for contrast
+        const saveBtn = document.createElement("button");
+        saveBtn.className =
+          "text-gray-500 hover:text-blue-600 text-2xl focus:outline-none transition-colors duration-150";
+        saveBtn.innerHTML = `<span class="icon-save-empty" aria-label="Save question"></span>`;
+        saveBtn.onclick = (e) => {
+          e.stopPropagation();
+          toggleSaveQuestion(question.id, saveBtn);
+        };
+        actionsContainer.appendChild(saveBtn);
+
+        if (isEditor() && !isSavedViewFlag) {
+          // Edit button colors remain suitable, changed hover color slightly for contrast
+          const editBtn = document.createElement("button");
+          editBtn.className =
+            "text-gray-500 hover:text-green-600 text-xl focus:outline-none transition-colors duration-150";
+          editBtn.innerHTML = `<span class="icon-edit" aria-label="Edit question"></span>`;
+          editBtn.onclick = (e) => {
+            e.stopPropagation();
+            editQuestion(questionBlock, question);
+          };
+          actionsContainer.appendChild(editBtn);
+        }
+        questionBlock.appendChild(actionsContainer);
+
+        // Changed question text color
+        const questionText = document.createElement("div");
+        questionText.className =
+          "font-semibold text-lg mb-4 text-gray-900 pr-16 question-text";
+        questionText.textContent = question.question;
+        questionBlock.appendChild(questionText);
+
+        const optionsContainerElement = document.createElement("div");
+        optionsContainerElement.className =
+          "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 options";
+        const shuffledOptions = shuffleArray([...question.options]);
+
+        shuffledOptions.forEach((option) => {
+          // Changed option wrapper background and hover colors
+          const optionWrapper = document.createElement("div");
+          optionWrapper.id = `q-${question.id}-opt-${option.key}`;
+          optionWrapper.className =
+            "p-3 bg-gray-100 rounded-lg hover:bg-gray-200 cursor-pointer transition-colors duration-150 focus-within:ring-2 focus-within:ring-blue-500 option-wrapper";
+          const label = document.createElement("label");
+          label.className = "flex items-center space-x-3 w-full cursor-pointer";
+          const radioInput = document.createElement("input");
+          radioInput.type = "radio";
+          radioInput.name = `q-${question.id}`;
+          radioInput.value = option.key;
+          radioInput.className = "form-radio"; // Custom radio styles are in the style block
+          radioInput.onchange = handleOptionClick(
+            question.id,
+            option.key,
+            question.answer,
+            question.explanation,
+            optionWrapper
+          );
+          // Changed option text color
+          const optionTextSpan = document.createElement("span");
+          optionTextSpan.className = "text-gray-800";
+          optionTextSpan.textContent = option.text;
+          label.appendChild(radioInput);
+          label.appendChild(optionTextSpan);
+          optionWrapper.appendChild(label);
+          optionsContainerElement.appendChild(optionWrapper);
+        });
+        questionBlock.appendChild(optionsContainerElement);
+
+        if (question.explanation) {
+          // Changed explanation box background and text colors
+          const explanationDiv = document.createElement("div");
+          explanationDiv.className =
+            "mt-5 p-4 bg-gray-100 border-l-4 border-blue-600 rounded-md text-gray-800 explanation";
+          explanationDiv.style.display = "none";
+          // Changed explanation header text color
+          explanationDiv.innerHTML = `<div class="font-semibold text-gray-900 mb-2">Explanation:</div><div>${question.explanation.replace(
+            /\n/g,
+            "<br>"
+          )}</div>`;
+          questionBlock.appendChild(explanationDiv);
+        }
+
+        // Check status *after* element is fully constructed
+        checkStarredStatus(question.id, starBtn, isSavedViewFlag); // Pass flag
+        checkSavedStatus(question.id, saveBtn);
+
+        // Handle progress bar visibility based on mode/view
+        if (isSavedViewFlag || isStudyMode) {
+          // Hide progress bar in saved view OR study mode
+          progressBarContainer.style.display = "none";
+        } else if (currentTopic !== "Saved Questions") {
+          // Show only for main topics in quiz mode
+          progressBarContainer.style.display = "block";
+          updateProgressBarUI(question.id, progressBarFill); // Update initial progress if applicable
+        } else {
+          // Should not happen if isSavedViewFlag is true
+          progressBarContainer.style.display = "none";
+        }
+
+        if (isSavedViewFlag) {
+          // Changed saved questions topic label text color
+          const topicLabel = document.createElement("div");
+          topicLabel.className = "mt-4 text-xs text-gray-600 italic";
+          topicLabel.textContent = `From topic: ${question.topic || "Unknown"}`;
+          questionBlock.appendChild(topicLabel);
+        }
+
+        return questionBlock;
+      }
+
+      // *** CORRECTED function ***
+      async function checkAndApplyAnsweredVisualState(
+        questionId,
+        questionBlockElement
+      ) {
+        const questionDataFromCache = questionsCache.find(
+          (q) => q.id === questionId
+        );
+        if (!questionDataFromCache) return;
+
+        const radioInputs = questionBlockElement.querySelectorAll(
+          `input[name="q-${questionId}"]`
+        );
+        const explanationDiv = questionBlockElement.querySelector(".explanation");
+        const allOptionWrappers = Array.from(
+          questionBlockElement.querySelectorAll(".option-wrapper")
+        );
+
+        // --- Reset visual states to default interactive state ---
+        radioInputs.forEach((input) => {
+          input.disabled = false; // Ensure enabled by default for quiz mode
+          input.checked = false;
+          input.closest("label").classList.remove("cursor-not-allowed");
+          const wrapper = input.closest(".option-wrapper");
+          wrapper.classList.remove(
+            "bg-green-500",
+            "text-white",
+            "ring-green-400",
+            "bg-red-500",
+            "ring-red-400",
+            "bg-gray-300",
+            "ring-2"
+          ); // Changed gray-600 to gray-300
+          // Changed initial and hover background for option wrappers
+          wrapper.classList.add(
+            "bg-gray-100",
+            "hover:bg-gray-200",
+            "focus-within:ring-2",
+            "focus-within:ring-blue-500"
+          );
+          // Changed text color for options
+          const optionTextSpan = wrapper.querySelector('span');
+          if (optionTextSpan) {
+               optionTextSpan.classList.remove('text-white'); // Remove text-white if it was added
+               optionTextSpan.classList.add('text-gray-800'); // Set default text color
+          }
+        });
+        if (explanationDiv) explanationDiv.style.display = "none";
+        // --- End Reset ---
+
+        if (isStudyMode) {
+          // STUDY MODE: Reveal correct answer, disable options, show explanation
+          radioInputs.forEach((input) => {
+            input.disabled = true;
+            input.closest("label").classList.add("cursor-not-allowed");
+            input
+              .closest(".option-wrapper")
+              .classList.remove(
+                "hover:bg-gray-200",
+                "focus-within:ring-blue-500"
+              ); // Changed hover
+          });
+
+          allOptionWrappers.forEach((wrapper) => {
+            wrapper.classList.remove("bg-gray-100"); // Changed initial bg
+            wrapper.classList.add("bg-gray-300"); // Changed gray-600 to gray-300
+
+            const radio = wrapper.querySelector('input[type="radio"]');
+            const optionTextSpan = wrapper.querySelector('span');
+
+            if (radio && radio.value === questionDataFromCache.answer) {
+              wrapper.classList.remove("bg-gray-300"); // Changed gray-300
+              wrapper.classList.add(
+                "bg-green-500",
+                "text-white",
+                "ring-2",
+                "ring-green-400"
+              );
+              if (optionTextSpan) optionTextSpan.classList.add('text-white'); // Ensure white text on colored background
+            } else {
+                 if (optionTextSpan) optionTextSpan.classList.add('text-gray-800'); // Ensure default text color on gray background
+            }
+          });
+
+          if (explanationDiv && questionDataFromCache.explanation) {
+            explanationDiv.style.display = "block";
+             // Ensure explanation text color is correct (already handled by explanationDiv class)
+          }
+        } else {
+          // QUIZ MODE: Ensure options are enabled (done by reset above).
+          // Do NOT disable or pre-color based on past DB scores here.
+          // Interaction and feedback are handled solely by handleOptionClick.
+        }
+      }
+
+      function handleOptionClick(
+        questionId,
+        selectedKey,
+        correctAnswer,
+        explanation,
+        clickedOptionWrapper
+      ) {
+        return function (event) {
+          // Ignore clicks if in study mode
+          if (isStudyMode) {
+            event.preventDefault();
+            return;
+          }
+
+          const questionBlock = document.getElementById(`q-${questionId}`);
+          if (!questionBlock) return;
+
+          // Disable all options for this question *after* one is clicked
+          const radioInputs = questionBlock.querySelectorAll(
+            `input[name="q-${questionId}"]`
+          );
+          radioInputs.forEach((input) => {
+            input.disabled = true;
+            input.closest("label").classList.add("cursor-not-allowed");
+            input
+              .closest(".option-wrapper")
+              .classList.remove(
+                "hover:bg-gray-200",
+                "focus-within:ring-blue-500"
+              ); // Changed hover
+          });
+
+          const isCorrect = selectedKey === correctAnswer;
+          const explanationDiv = questionBlock.querySelector(".explanation");
+
+          console.log("Before score update - currentScore:", currentScore);
+          console.log("Is answer correct:", isCorrect);
+
+          // Update score immediately for both Saved Questions and regular topics
+          if (isCorrect) {
+            currentScore = (currentScore || 0) + 1; // Ensure currentScore is initialized
+            console.log("After increment - currentScore:", currentScore);
+          }
+
+          // Update score display immediately
+          scoreDisplay.textContent = `Score: ${currentScore} / ${quizSize}`;
+          console.log("Updated score display:", scoreDisplay.textContent);
+
+          // Track score/progress in database only for main topics
+          if (currentTopic !== "Saved Questions") {
+            trackCorrectAnswers(questionId, isCorrect);
+          }
+
+          // Apply visual feedback
+          const allOptionWrappers = Array.from(
+            questionBlock.querySelectorAll(".option-wrapper")
+          );
+          allOptionWrappers.forEach((wrapper) => {
+            wrapper.classList.remove(
+              "bg-green-500",
+              "text-white",
+              "ring-green-400",
+              "bg-red-500",
+              "ring-red-400",
+              "bg-gray-100"
+            ); // Changed bg-gray-700 to bg-gray-100
+            wrapper.classList.add("bg-gray-300"); // Changed bg-gray-600 to bg-gray-300
+
+            const radio = wrapper.querySelector('input[type="radio"]');
+             const optionTextSpan = wrapper.querySelector('span');
+
+            if (!radio) return;
+
+            if (radio.value === selectedKey) {
+              if (isCorrect) {
+                wrapper.classList.add(
+                  "bg-green-500",
+                  "text-white",
+                  "ring-2",
+                  "ring-green-400"
+                );
+                 if (optionTextSpan) optionTextSpan.classList.add('text-white');
+              } else {
+                wrapper.classList.add(
+                  "bg-red-500",
+                  "text-white",
+                  "ring-2",
+                  "ring-red-400"
+                );
+                 if (optionTextSpan) optionTextSpan.classList.add('text-white');
+              }
+            }
+            if (radio.value === correctAnswer) {
+              wrapper.classList.remove("bg-gray-300", "bg-red-500", "ring-red-400"); // Changed bg-gray-300
+              wrapper.classList.add(
+                "bg-green-500",
+                "text-white",
+                "ring-2",
+                "ring-green-400"
+              );
+               if (optionTextSpan) optionTextSpan.classList.add('text-white');
+            } else {
+                // Ensure non-correct/non-selected options have the default text color
+                 if (optionTextSpan && !wrapper.classList.contains('text-white')) {
+                     optionTextSpan.classList.remove('text-white');
+                     optionTextSpan.classList.add('text-gray-800');
+                 }
+            }
+          });
+
+          // Show explanation
+          if (explanationDiv && (explanation || !isCorrect)) {
+            // Show if available, or always if incorrect
+            explanationDiv.style.display = "block";
+             // Ensure explanation text color is correct (handled by explanationDiv class)
+          }
+        };
+      }
+
+      function reRenderSingleQuestion(questionIdToRender) {
+        const oldQuestionBlockElement = document.getElementById(
+          `q-${questionIdToRender}`
+        );
+        if (!oldQuestionBlockElement) return;
+
+        const questionData = questionsCache.find(
+          (q) => q.id === questionIdToRender
+        );
+        if (questionData) {
+          const isCurrentlySavedView = currentTopic === "Saved Questions";
+          const newBlock = createQuestionElement(
+            questionData,
+            isCurrentlySavedView
+          );
+          oldQuestionBlockElement.parentNode.replaceChild(
+            newBlock,
+            oldQuestionBlockElement
+          );
+          // Ensure the state reflects the current mode after re-rendering
+          checkAndApplyAnsweredVisualState(questionData.id, newBlock);
+        } else {
+          console.warn(
+            "Could not find question data in cache for re-render:",
+            questionIdToRender
+          );
+        }
+      }
+
+      function editQuestion(qBlock, question) {
+        // ... (Edit function remains the same - uses reRenderSingleQuestion for cancel)
+        const questionTextElement = qBlock.querySelector(".question-text");
+        const optionsContainer = qBlock.querySelector(".options");
+        const actionButtonsContainer = qBlock.querySelector(
+          ".absolute.right-3"
+        ); // The div holding star/save/edit
+
+        if (actionButtonsContainer) actionButtonsContainer.style.display = "none"; // Hide original star/save/edit
+
+        const originalQuestionText = question.question;
+        const originalOptionsData = JSON.parse(JSON.stringify(question.options)); // Deep copy
+        const originalExplanation = question.explanation || "";
+
+        // Create editable question field - Changed input background, text, and border colors
+        questionTextElement.innerHTML = "";
+        const questionInput = document.createElement("textarea");
+        questionInput.value = originalQuestionText;
+        questionInput.className =
+          "w-full p-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 resize-y min-h-[60px]";
+        questionTextElement.appendChild(questionInput);
+
+        optionsContainer.innerHTML = ""; // Clear existing options for editing
+        originalOptionsData.forEach((optData) => {
+          const optInputDiv = document.createElement("div");
+          optInputDiv.className = "mb-2 flex items-center gap-2";
+          const optInput = document.createElement("input");
+          optInput.type = "text";
+          optInput.value = optData.text;
+          // Changed input background, text, and border colors
+          optInput.className =
+            "w-full p-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500";
+          optInput.dataset.originalKey = optData.key;
+
+          // Changed key label background and text colors
+          const keyLabel = document.createElement("span");
+          keyLabel.className = "text-xs text-gray-600 p-1 bg-gray-300 rounded";
+          keyLabel.textContent = `Key: ${optData.key}`; // Show key, not editable for simplicity here
+
+          optInputDiv.appendChild(optInput);
+          optInputDiv.appendChild(keyLabel);
+          optionsContainer.appendChild(optInputDiv);
+        });
+
+        let explanationContainer = qBlock.querySelector(".explanation");
+        if (!explanationContainer) {
+          explanationContainer = document.createElement("div");
+          // Add class to identify it was potentially added during edit
+          // Changed explanation container background and text colors
+          explanationContainer.className =
+            "mt-5 p-4 bg-gray-100 border-l-4 border-blue-600 rounded-md text-gray-800 explanation explanation-edit-container";
+          optionsContainer.insertAdjacentElement(
+            "afterend",
+            explanationContainer
+          );
+        } else {
+          explanationContainer.classList.add("explanation-edit-container"); // Mark existing one
+          // Ensure existing explanation div also has the correct light theme classes
+          explanationContainer.classList.remove("bg-gray-750", "text-gray-300");
+          explanationContainer.classList.add("bg-gray-100", "text-gray-800");
+        }
+        explanationContainer.style.display = "block";
+         // Changed explanation header text color
+        explanationContainer.innerHTML = `<div class="font-semibold text-gray-900 mb-2">Explanation:</div>`;
+        const explanationEditor = document.createElement("textarea");
+        // Changed explanation editor background, text, and border colors
+        explanationEditor.className =
+          "w-full min-h-[80px] p-2 bg-white text-gray-900 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 mt-1";
+        explanationEditor.value = originalExplanation;
+        explanationContainer.appendChild(explanationEditor);
+
+        const existingBtnContainer = qBlock.querySelector(".btn-container");
+        if (existingBtnContainer) existingBtnContainer.remove();
+
+        const btnContainer = document.createElement("div");
+        btnContainer.className = "mt-4 flex gap-3 btn-container";
+
+        // Save button colors remain suitable
+        const saveEditBtn = document.createElement("button");
+        saveEditBtn.className =
+          "bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md transition-colors";
+        saveEditBtn.textContent = "Save Changes";
+        saveEditBtn.onclick = () =>
+          saveQuestionEdits(
+            qBlock,
+            question.id,
+            questionInput,
+            optionsEditorContainer,
+            explanationEditor
+          );
+
+        // Changed Cancel button background and text colors
+        const cancelBtn = document.createElement("button");
+        cancelBtn.className =
+          "bg-gray-400 hover:bg-gray-500 text-gray-900 font-semibold py-2 px-4 rounded-md transition-colors";
+        cancelBtn.textContent = "Cancel";
+        cancelBtn.onclick = () => {
+          reRenderSingleQuestion(question.id);
+        };
+
+        btnContainer.appendChild(saveEditBtn);
+        btnContainer.appendChild(cancelBtn);
+        // Insert buttons after the explanation container (which might be the one added during edit)
+        explanationContainer.insertAdjacentElement("afterend", btnContainer);
+      }
+
+      function saveQuestionEdits(
+        qBlock,
+        questionId,
+        questionInput,
+        optionsEditorContainer,
+        explanationEditor
+      ) {
+        // ... (Save function remains the same - uses reRenderSingleQuestion on success/cancel)
+        const newQuestionText = questionInput.value.trim();
+        const editedOptionInputs = optionsEditorContainer.querySelectorAll(
+          "input[type='text']"
+        );
+
+        const newOptions = Array.from(editedOptionInputs).map((inputEl) => ({
+          text: inputEl.value.trim(),
+          key: inputEl.dataset.originalKey,
+        }));
+        const newExplanation = explanationEditor.value.trim();
+
+        if (!newQuestionText) {
+          alert("Question text cannot be empty.");
+          return;
+        }
+        if (newOptions.some((opt) => !opt.text)) {
+          alert("Option text cannot be empty.");
+          return;
+        }
+
+        const questionDataInCache = questionsCache.find(
+          (q) => q.id === questionId
+        );
+        if (!questionDataInCache) {
+          console.error("Original question data not found in cache.");
+          return;
+        }
+
+        questionDataInCache.question = newQuestionText;
+        questionDataInCache.options = newOptions;
+        if (newExplanation) questionDataInCache.explanation = newExplanation;
+        else delete questionDataInCache.explanation;
+
+        db.collection("quizi")
+          .doc(currentTopic)
+          .get()
+          .then((doc) => {
+            if (!doc.exists) {
+              console.error("Topic document not found.");
+              return;
+            }
+
+            const allQuestionsInTopic = doc.data().questions;
+            const questionIndex = allQuestionsInTopic.findIndex(
+              (q) => q.id === questionId
+            );
+
+            if (questionIndex !== -1) {
+              allQuestionsInTopic[questionIndex].question = newQuestionText;
+              allQuestionsInTopic[questionIndex].options = newOptions.map(
+                (opt) => ({ key: opt.key, text: opt.text })
+              );
+              if (newExplanation)
+                allQuestionsInTopic[questionIndex].explanation = newExplanation;
+              else delete allQuestionsInTopic[questionIndex].explanation;
+
+              db.collection("quizi")
+                .doc(currentTopic)
+                .update({ questions: allQuestionsInTopic })
+                .then(() => {
+                  console.log("Question updated in Firestore.");
+                  reRenderSingleQuestion(questionId);
+                })
+                .catch((error) => {
+                  console.error("Error saving to Firestore:", error);
+                  alert("Error saving. Please try again.");
+                });
+            } else {
+              console.error("Question not found in Firestore for update.");
+            }
+          })
+          .catch((error) => console.error("Error fetching topic for edits:", error));
+      }
+
+      // --- Star/Save and other utility functions remain the same ---
+
+      async function toggleSaveQuestion(questionId, saveBtn) {
+        const savedRef = db.collection("quizi").doc("Saved Questions");
+        try {
+          const doc = await savedRef.get();
+          const savedQuestionIds =
+            doc.exists && doc.data().questions ? [...doc.data().questions] : [];
+          const index = savedQuestionIds.indexOf(questionId);
+          if (index === -1) {
+            savedQuestionIds.push(questionId);
+          } else {
+            savedQuestionIds.splice(index, 1);
+          }
+          await savedRef.set({ questions: savedQuestionIds }, { merge: true });
+          checkSavedStatus(questionId, saveBtn);
+        } catch (error) {
+          console.error("Error updating saved questions:", error); /* ... error UI ... */
+        }
+      }
+      async function checkSavedStatus(questionId, saveBtn) {
+        /* ... same ... */
+        const savedRef = db.collection("quizi").doc("Saved Questions");
+        try {
+          const doc = await savedRef.get();
+          const saved = doc.exists ? doc.data().questions || [] : [];
+          // Changed filled save icon color
+          saveBtn.innerHTML = saved.includes(questionId)
+            ? `<span class="icon-save-filled text-blue-600" aria-label="Unsave question"></span>`
+            : `<span class="icon-save-empty text-gray-500" aria-label="Save question"></span>`; // Ensure default text color
+        } catch (error) {
+          console.error("Error checking saved status:", error); /* ... error UI ... */
+        }
+      }
+      async function toggleStar(questionId, starBtn, isSavedViewFlag) {
+        /* ... same ... */
+        if (isSavedViewFlag || currentTopic === "Saved Questions") {
+          if (starBtn) starBtn.style.display = "none";
+          return;
+        }
+        const starredRef = db.collection("starredQuestions").doc(currentTopic);
+        try {
+          const doc = await starredRef.get();
+          const starred =
+            doc.exists && doc.data().questions ? [...doc.data().questions] : [];
+          const index = starred.indexOf(questionId);
+          if (index === -1) {
+            starred.push(questionId);
+          } else {
+            starred.splice(index, 1);
+          }
+          await starredRef.set({ questions: starred }, { merge: true });
+          checkStarredStatus(questionId, starBtn, isSavedViewFlag);
+        } catch (error) {
+          console.error("Error updating starred questions:", error); /* ... error UI ... */
+        }
+      }
+      async function checkStarredStatus(questionId, starBtn, isSavedViewFlag) {
+        /* ... same ... */
+        if (isSavedViewFlag || currentTopic === "Saved Questions") {
+          if (starBtn) starBtn.style.display = "none";
+          return;
+        }
+        if (starBtn) starBtn.style.display = "inline-flex"; // Ensure visible otherwise
+
+        const starredRef = db.collection("starredQuestions").doc(currentTopic);
+        try {
+          const doc = await starredRef.get();
+          const starred = doc.exists ? doc.data().questions || [] : [];
+          // Changed filled star icon color
+          starBtn.innerHTML = starred.includes(questionId)
+            ? `<span class="icon-star-filled text-yellow-600" aria-label="Unstar question"></span>`
+            : `<span class="icon-star-empty text-gray-500" aria-label="Star question"></span>`; // Ensure default text color
+        } catch (error) {
+          console.error("Error checking starred status:", error); /* ... error UI ... */
+        }
+      }
+      async function filterQuestionsByScore() {
+        /* ... same ... */
+        if (currentTopic === "Saved Questions") return;
+        const filterValue = document.getElementById("scoreFilter").value;
+        try {
+          const progressRef = db
+            .collection("userQuestionProgress")
+            .doc(currentTopic);
+          const doc = await progressRef.get();
+          const progressData = doc.exists ? doc.data() : {};
+          const questionBlocks = document.querySelectorAll(
+            "#quizBox .question-block"
+          );
+          questionBlocks.forEach((block) => {
+            const questionId = block.id.replace("q-", "");
+            const score =
+              progressData[questionId] === undefined ? 0 : progressData[questionId];
+            block.style.display =
+              filterValue === "all" || score === parseInt(filterValue)
+                ? "block"
+                : "none";
+          });
+        } catch (error) {
+          console.error("Error filtering questions by score:", error);
+        }
+      }
+      const trackCorrectAnswers = (questionId, isCorrect) => {
+        /* ... same ... */
+        if (currentTopic === "Saved Questions" || isStudyMode) return;
+        const correctAnswersRef = db
+          .collection("userQuestionProgress")
+          .doc(currentTopic);
+        correctAnswersRef.get().then((doc) => {
+          const progressData = doc.exists ? doc.data() : {};
+          const oldValue =
+            progressData[questionId] === undefined ? 0 : progressData[questionId];
+          let newValue = oldValue;
+          if (isCorrect) {
+            newValue = oldValue < 0 ? 1 : Math.min(oldValue + 1, 4);
+            if (oldValue <= 3 && newValue === 4) {
+              progressScore = Math.min(progressScore + 1, quizSize);
+            }
+          } else {
+            newValue = oldValue > 0 ? -1 : Math.max(oldValue - 1, -3);
+            if (oldValue === 4 && newValue < 4) {
+              progressScore = Math.max(progressScore - 1, 0);
+            }
+          }
+          if (newValue !== oldValue) {
+            correctAnswersRef
+              .set({ [questionId]: newValue }, { merge: true })
+              .then(() => {
+                updateProgressBarUI(questionId);
+                updateProgressDisplay();
+              })
+              .catch((error) =>
+                console.error("Error updating question progress:", error)
+              );
+          } else {
+            updateProgressBarUI(questionId);
+            updateProgressDisplay();
+          }
+        });
+      };
+      function updateProgressCountInitial() {
+        /* ... same ... */
+        if (currentTopic === "Saved Questions") {
+          progressScore = 0;
+          updateProgressDisplay();
+          return;
+        }
+        const correctAnswersRef = db
+          .collection("userQuestionProgress")
+          .doc(currentTopic);
+        correctAnswersRef
+          .get()
+          .then((doc) => {
+            if (doc.exists) {
+              const progressData = doc.data();
+              progressScore = Object.values(progressData).filter(
+                (val) => val === 4
+              ).length;
+            } else {
+              progressScore = 0;
+            }
+            updateProgressDisplay();
+            const questionBlocks = document.querySelectorAll(
+              "#quizBox .question-block"
+            );
+            questionBlocks.forEach((block) => {
+              const questionId = block.id.replace("q-", "");
+              const progressBarFill = block.querySelector(
+                ".h-full.transition-all"
+              );
+              // Update initial progress bar state (visibility handled in createQuestionElement)
+              if (progressBarFill && !isStudyMode)
+                updateProgressBarUI(questionId, progressBarFill);
+            });
+          })
+          .catch((error) => {
+            console.error("Error fetching initial progress count:", error);
+            progressScore = 0;
+            updateProgressDisplay();
+          });
+      }
+      async function updateProgressBarUI(
+        questionId,
+        progressBarFillElement = null
+      ) {
+        /* ... same ... */
+        // Visibility is now handled in createQuestionElement based on mode/view
+        if (!progressBarFillElement) {
+          const questionBlock = document.getElementById(`q-${questionId}`);
+          if (questionBlock) {
+            progressBarFillElement = questionBlock.querySelector(
+              ".h-full.transition-all"
+            );
+          }
+        }
+        if (
+          !progressBarFillElement ||
+          isStudyMode ||
+          currentTopic === "Saved Questions"
+        )
+          return; // Don't update if hidden
+
+        try {
+          const doc = await db
+            .collection("userQuestionProgress")
+            .doc(currentTopic)
+            .get();
+          const scoreData = doc.exists ? doc.data() : {};
+          let score = scoreData[questionId] === undefined ? 0 : scoreData[questionId];
+          let progressPercent = 0;
+          let bgColorClass = "bg-gray-300"; // Default to gray-300 for light theme
+          progressBarFillElement.classList.remove(
+            "bg-green-500",
+            "bg-red-500",
+            "bg-green-300",
+            "bg-green-400",
+            "bg-emerald-500",
+            "bg-red-300",
+            "bg-red-400",
+            "bg-gray-700" // Removed dark theme gray
+          );
+          if (score > 0) {
+            progressPercent = score * 25;
+            if (score === 1) bgColorClass = "bg-green-300";
+            else if (score === 2) bgColorClass = "bg-green-400";
+            else if (score === 3) bgColorClass = "bg-green-500";
+            else if (score === 4) bgColorClass = "bg-emerald-500"; // Keep vibrant green for mastered
+          } else if (score < 0) {
+            progressPercent = Math.abs(score) * 33.33;
+            if (score === -1) bgColorClass = "bg-red-300";
+            else if (score === -2) bgColorClass = "bg-red-400";
+            else if (score === -3) bgColorClass = "bg-red-500";
+          }
+
+          progressBarFillElement.style.width = `${progressPercent}%`;
+          progressBarFillElement.classList.add(bgColorClass);
+        } catch (error) {
+          console.error("Error updating progress bar:", error); /* ... error UI ... */
+        }
+      }
+      function shuffleQuestions() {
+        /* ... same ... */
+        const quizBox = document.getElementById("quizBox");
+        const questionBlocks = Array.from(quizBox.children).filter((child) =>
+          child.classList.contains("question-block")
+        );
+        if (questionBlocks.length === 0) return;
+        for (let i = questionBlocks.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [questionBlocks[i], questionBlocks[j]] = [
+            questionBlocks[j],
+            questionBlocks[i],
+          ];
+        }
+        questionBlocks.forEach((block) => quizBox.appendChild(block));
+      }
+      function updateProgressDisplay() {
+        /* ... same ... */
+        if (progressDisplay) {
+          progressDisplay.textContent =
+            currentTopic === "Saved Questions"
+              ? `Viewing: ${quizSize} saved`
+              : `Mastered: ${progressScore} / ${quizSize}`;
+        }
+      }
+      function shuffleArray(array) {
+        /* ... same ... */
+        const newArray = [...array];
+        for (let i = newArray.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+        }
+        return newArray;
+      }
+      function isEditor() {
+        return true;
+      } // Keep this as is
+      window.onload = loadTopics;
+    </script>
+  </body>
+</html>
