@@ -67,7 +67,6 @@
         /* focus:ring-2 focus:ring-offset-2 focus:ring-offset-white focus:ring-blue-600 */
         box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #2563eb;
       }
-
       /* Icon placeholders - replace with actual SVGs or icon font classes */
       .icon-star-empty::before {
         content: "☆";
@@ -86,6 +85,39 @@
       }
       .icon-shuffle::before {
         content: "🔀";
+      }
+
+      /* Animations for feedback */
+      @keyframes pulse-green {
+        0%, 100% {
+          box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); /* green-500 with opacity */
+        }
+        50% {
+          box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+        }
+      }
+
+      @keyframes shake-red {
+        0%, 100% {
+          transform: translateX(0);
+        }
+        25% {
+          transform: translateX(-5px);
+        }
+        50% {
+          transform: translateX(5px);
+        }
+        75% {
+          transform: translateX(-5px);
+        }
+      }
+
+      .animate-pulse-green {
+        animation: pulse-green 1s infinite;
+      }
+
+      .animate-shake-red {
+        animation: shake-red 0.5s ease-in-out;
       }
     </style>
   </head>
@@ -367,8 +399,7 @@
             quizSize = questionsCache.length;
             console.log("Total questions available:", quizSize);
             scoreDisplay.textContent = `Score: ${currentScore} / ${quizSize}`;
-            
-            // Always show first page of questions
+                        // Always show first page of questions
             const firstPageQuestions = questionsCache.slice(0, QUESTIONS_PER_PAGE);
             renderQuestionList(firstPageQuestions, false);
             updateProgressCountInitial();
@@ -381,13 +412,11 @@
 
       function renderQuestionList(questionsToRender, isSavedViewFlag) {
         quizContainer.innerHTML = "";
-        
-        // Calculate the current page's questions
+                // Calculate the current page's questions
         const start = currentPage * QUESTIONS_PER_PAGE;
         const end = start + QUESTIONS_PER_PAGE;
         const currentPageQuestions = questionsCache.slice(start, end);
-        
-        currentPageQuestions.forEach((question, index) => {
+                currentPageQuestions.forEach((question, index) => {
           const questionElement = createQuestionElement(question, isSavedViewFlag);
           // Update the question number to be correct for this page
           const questionText = questionElement.querySelector('.question-text');
@@ -555,7 +584,6 @@
 
         return questionBlock;
       }
-
       // *** CORRECTED function ***
       async function checkAndApplyAnsweredVisualState(
         questionId,
@@ -581,14 +609,16 @@
           input.closest("label").classList.remove("cursor-not-allowed");
           const wrapper = input.closest(".option-wrapper");
           wrapper.classList.remove(
-            "bg-green-500",
+            "bg-green-600", // Changed from 500
             "text-white",
-            "ring-green-400",
-            "bg-red-500",
-            "ring-red-400",
+            "ring-green-500", // Changed from 400
+            "bg-red-600", // Changed from 500
+            "ring-red-500", // Changed from 400
             "bg-gray-300",
-            "ring-2"
-          ); // Changed gray-600 to gray-300
+            "ring-2",
+            "animate-pulse-green", // Remove animations
+            "animate-shake-red"    // Remove animations
+          );
           // Changed initial and hover background for option wrappers
           wrapper.classList.add(
             "bg-gray-100",
@@ -621,18 +651,18 @@
 
           allOptionWrappers.forEach((wrapper) => {
             wrapper.classList.remove("bg-gray-100"); // Changed initial bg
-            wrapper.classList.add("bg-gray-300"); // Changed gray-600 to gray-300
+            wrapper.classList.add("bg-gray-300");
 
             const radio = wrapper.querySelector('input[type="radio"]');
             const optionTextSpan = wrapper.querySelector('span');
 
             if (radio && radio.value === questionDataFromCache.answer) {
-              wrapper.classList.remove("bg-gray-300"); // Changed gray-300
+              wrapper.classList.remove("bg-gray-300");
               wrapper.classList.add(
-                "bg-green-500",
+                "bg-green-600", // Changed from 500
                 "text-white",
                 "ring-2",
-                "ring-green-400"
+                "ring-green-500" // Changed from 400
               );
               if (optionTextSpan) optionTextSpan.classList.add('text-white'); // Ensure white text on colored background
             } else {
@@ -696,14 +726,14 @@
           );
           allOptionWrappers.forEach((wrapper) => {
             wrapper.classList.remove(
-              "bg-green-500",
+              "bg-green-600", // Changed from 500
               "text-white",
-              "ring-green-400",
-              "bg-red-500",
-              "ring-red-400",
+              "ring-green-500", // Changed from 400
+              "bg-red-600", // Changed from 500
+              "ring-red-500", // Changed from 400
               "bg-gray-100"
-            ); // Changed bg-gray-700 to bg-gray-100
-            wrapper.classList.add("bg-gray-300"); // Changed bg-gray-600 to bg-gray-300
+            );
+            wrapper.classList.add("bg-gray-300");
 
             const radio = wrapper.querySelector('input[type="radio"]');
              const optionTextSpan = wrapper.querySelector('span');
@@ -713,29 +743,31 @@
             if (radio.value === selectedKey) {
               if (isCorrect) {
                 wrapper.classList.add(
-                  "bg-green-500",
+                  "bg-green-600", // Changed from 500
                   "text-white",
                   "ring-2",
-                  "ring-green-400"
+                  "ring-green-500", // Changed from 400
+                  "animate-pulse-green" // Add animation
                 );
                  if (optionTextSpan) optionTextSpan.classList.add('text-white');
               } else {
                 wrapper.classList.add(
-                  "bg-red-500",
+                  "bg-red-600", // Changed from 500
                   "text-white",
                   "ring-2",
-                  "ring-red-400"
+                  "ring-red-500", // Changed from 400
+                  "animate-shake-red" // Add animation
                 );
                  if (optionTextSpan) optionTextSpan.classList.add('text-white');
               }
             }
             if (radio.value === correctAnswer) {
-              wrapper.classList.remove("bg-gray-300", "bg-red-500", "ring-red-400"); // Changed bg-gray-300
+              wrapper.classList.remove("bg-gray-300", "bg-red-600", "ring-red-500"); // Changed from 500 and 400
               wrapper.classList.add(
-                "bg-green-500",
+                "bg-green-600", // Changed from 500
                 "text-white",
                 "ring-2",
-                "ring-green-400"
+                "ring-green-500" // Changed from 400
               );
                if (optionTextSpan) optionTextSpan.classList.add('text-white');
             } else {
@@ -753,6 +785,13 @@
             explanationDiv.style.display = "block";
              // Ensure explanation text color is correct (handled by explanationDiv class)
           }
+
+          // Remove animations after a short delay
+          setTimeout(() => {
+            allOptionWrappers.forEach(wrapper => {
+              wrapper.classList.remove("animate-pulse-green", "animate-shake-red");
+            });
+          }, 1000); // Adjust duration as needed
         };
       }
 
@@ -794,7 +833,6 @@
         ); // The div holding star/save/edit
 
         if (actionButtonsContainer) actionButtonsContainer.style.display = "none"; // Hide original star/save/edit
-
         const originalQuestionText = question.question;
         const originalOptionsData = JSON.parse(JSON.stringify(question.options)); // Deep copy
         const originalExplanation = question.explanation || "";
@@ -872,10 +910,8 @@
             qBlock,
             question.id,
             questionInput,
-            optionsEditorContainer,
             explanationEditor
-          );
-
+          ); // Removed optionsEditorContainer
         // Changed Cancel button background and text colors
         const cancelBtn = document.createElement("button");
         cancelBtn.className =
@@ -895,12 +931,17 @@
         qBlock,
         questionId,
         questionInput,
-        optionsEditorContainer,
         explanationEditor
       ) {
-        // ... (Save function remains the same - uses reRenderSingleQuestion on success/cancel)
+        // Correctly get the options container from the question block
+        const optionsContainer = qBlock.querySelector(".options");
+        if (!optionsContainer) {
+            console.error("Options container not found during save.");
+            return;
+        }
+
         const newQuestionText = questionInput.value.trim();
-        const editedOptionInputs = optionsEditorContainer.querySelectorAll(
+        const editedOptionInputs = optionsContainer.querySelectorAll( // Changed from optionsEditorContainer
           "input[type='text']"
         );
 
@@ -1186,8 +1227,8 @@
           let progressPercent = 0;
           let bgColorClass = "bg-gray-300"; // Default to gray-300 for light theme
           progressBarFillElement.classList.remove(
-            "bg-green-500",
-            "bg-red-500",
+            "bg-green-600", // Changed from 500
+            "bg-red-600", // Changed from 500
             "bg-green-300",
             "bg-green-400",
             "bg-emerald-500",
@@ -1199,13 +1240,13 @@
             progressPercent = score * 25;
             if (score === 1) bgColorClass = "bg-green-300";
             else if (score === 2) bgColorClass = "bg-green-400";
-            else if (score === 3) bgColorClass = "bg-green-500";
+            else if (score === 3) bgColorClass = "bg-green-600"; // Changed from 500
             else if (score === 4) bgColorClass = "bg-emerald-500"; // Keep vibrant green for mastered
           } else if (score < 0) {
             progressPercent = Math.abs(score) * 33.33;
             if (score === -1) bgColorClass = "bg-red-300";
             else if (score === -2) bgColorClass = "bg-red-400";
-            else if (score === -3) bgColorClass = "bg-red-500";
+            else if (score === -3) bgColorClass = "bg-red-600"; // Changed from 500
           }
 
           progressBarFillElement.style.width = `${progressPercent}%`;
