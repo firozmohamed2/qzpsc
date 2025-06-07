@@ -140,6 +140,12 @@
         >
           Shuffle
         </button>
+        <button
+          id="show-last3-wrong-btn"
+          class="bg-red-500 hover:bg-red-600 text-white font-semibold py-1.5 px-3 rounded-lg shadow-md transition-colors duration-150 text-sm"
+        >
+          Show Last 3 Wrong
+        </button>
         <select
           id="filter-type-select"
           class="bg-gray-700 text-white py-1.5 px-2 rounded-lg shadow-md text-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -277,6 +283,9 @@
       );
       const applyFilterBtn = document.getElementById("apply-filter-btn");
 
+      // --- Add after DOM elements ---
+      const showLast3WrongBtn = document.getElementById("show-last3-wrong-btn");
+
       // --- Quiz State ---
       let score = 0;
       let questions = []; // Master list of all questions with their current stats
@@ -304,7 +313,7 @@
         const provider = new GoogleAuthProvider();
         try {
           await signInWithPopup(auth, provider);
-          console.log("Signed in with Google!");
+          console.log("Signed in with Google! 🙂");
         } catch (error) {
           console.error("Error signing in with Google:", error);
           if (error.code === "auth/popup-closed-by-user") {
@@ -343,21 +352,10 @@
         }
       }
 
+      // Only allow Google Sign-In (remove anonymous and custom token logic)
       async function authenticateAndLoadQuiz() {
-        try {
-          if (initialAuthToken) {
-            console.log("Authenticating with custom token...");
-            await signInWithCustomToken(auth, initialAuthToken);
-          } else if (!auth.currentUser) {
-            console.log("Authenticating anonymously...");
-            await signInAnonymously(auth);
-          }
-        } catch (error) {
-          console.error("Initial authentication error:", error);
-          loadingIndicatorEl.textContent = `Authentication failed: ${error.message}. Please ensure Firebase Anonymous Sign-in is enabled in your project.`;
-          loadingIndicatorEl.classList.remove("hidden");
-          allQuestionsContainerEl.classList.add("hidden");
-        }
+        // Do nothing here. User must click Google Sign-In button.
+        // Optionally, you can auto-show a message or disable UI until signed in.
       }
 
       async function loadQuizList() {
@@ -448,9 +446,11 @@
             }
 
             let userQuestionStats = {};
+            let last3Stats = {};
             if (userStatsSnap.exists()) {
               console.log("User stats document data:", userStatsSnap.data());
               userQuestionStats = userStatsSnap.data().questionStats || {};
+              last3Stats = userStatsSnap.data().last3Stats || {};
             } else {
               console.log(
                 "No user stats found for this quiz. Initializing new stats."
@@ -474,6 +474,10 @@
                   ...stats,
                   isAnswered: false,
                   userSelection: null,
+                  lastAnswers:
+                    (last3Stats[questionId] &&
+                      last3Stats[questionId].lastAnswers) ||
+                    [],
                 };
               }
             );
@@ -502,11 +506,17 @@
       }
 
       function initializeQuiz(quizData) {
-        questions = JSON.parse(JSON.stringify(quizData.questions)).map((q) => ({
-          ...q,
-          isAnswered: false,
-          userSelection: null,
-        }));
+        questions = JSON.parse(JSON.stringify(quizData.questions)).map((q) => {
+          // Shuffle options once when quiz is loaded
+          const shuffledOptions = [...q.options];
+          shuffleArray(shuffledOptions);
+          return {
+            ...q,
+            options: shuffledOptions,
+            isAnswered: false,
+            userSelection: null,
+          };
+        });
 
         quizTitleEl.textContent = quizData.quizTitle || "ചോദ്യോത്തരി";
         score = 0;
@@ -620,7 +630,6 @@
           );
 
           let displayOptions = [...questionData.options];
-          shuffleArray(displayOptions);
 
           displayOptions.forEach((option) => {
             const optionWrapper = document.createElement("div");
@@ -764,6 +773,13 @@
         updateScoreDisplay();
       }
 
+      // --- Track last 3 answers for each question ---
+      function updateLastAnswers(question, isCorrect) {
+        if (!Array.isArray(question.lastAnswers)) question.lastAnswers = [];
+        question.lastAnswers.push(isCorrect ? "correct" : "wrong");
+        if (question.lastAnswers.length > 3) question.lastAnswers.shift();
+      }
+
       function handleOptionSelect(event, questionId, selectedKey) {
         const questionObject = questions.find((q) => q.id === questionId);
         if (!questionObject) {
@@ -817,7 +833,10 @@
         );
 
         // Update user stats for the question
-        if (selectedKey === questionObject.answer) {
+        const isCorrect = selectedKey === questionObject.answer;
+        updateLastAnswers(questionObject, isCorrect);
+
+        if (isCorrect) {
           score++;
           feedbackEl.textContent = "ശരിയാണ്!";
           feedbackEl.classList.add("correct-inline");
@@ -875,6 +894,7 @@
 
         updateScoreDisplay();
         saveUserQuizStats(); // Save updated stats to Firestore
+        saveLast3StatsToFirestore(); // Save last 3 stats after each answer
         applyFilters(); // Re-apply filters after an answer to update the view
 
         if (answeredQuestionsCount === questions.length) {
@@ -882,39 +902,48 @@
         }
       }
 
-      async function saveUserQuizStats() {
-        if (!userId || !selectedQuizDocId) {
-          console.warn(
-            "Cannot save user stats: userId or selectedQuizDocId is missing."
-          );
-          return;
+      // --- Save last 3 answers to Firestore for all questions ---
+      async function saveLast3StatsToFirestore() {
+        if (!userId || !selectedQuizDocId) return;
+        const userStatsDocRef = doc(
+          db,
+          `users/${userId}/quizStats/${selectedQuizDocId}`
+        );
+        const last3Stats = {};
+        questions.forEach((q) => {
+          last3Stats[q.id] = { lastAnswers: q.lastAnswers || [] };
+        });
+        try {
+          await setDoc(userStatsDocRef, { last3Stats }, { merge: true });
+        } catch (e) {
+          console.error("Error saving last 3 stats:", e);
         }
+      }
 
+      async function saveUserQuizStats() {
+        if (!userId || !selectedQuizDocId) return;
         const userStatsDocRef = doc(
           db,
           `users/${userId}/quizStats/${selectedQuizDocId}`
         );
         const questionStatsToSave = {};
-
-        // Prepare only the relevant stats for saving
         questions.forEach((q) => {
           questionStatsToSave[q.id] = {
             correctCount: q.correctCount || 0,
             incorrectCount: q.incorrectCount || 0,
             currentStreak: q.currentStreak || 0,
-            lastAnswerCorrect:
-              q.lastAnswerCorrect !== null ? q.lastAnswerCorrect : false,
+            lastAnswerCorrect: q.lastAnswerCorrect || null,
             lastAttemptedTime: q.lastAttemptedTime || null,
           };
         });
-
         try {
           await setDoc(
             userStatsDocRef,
             { questionStats: questionStatsToSave },
             { merge: true }
           );
-          console.log("User quiz stats saved successfully!");
+          // Optionally log success
+          // console.log("User quiz stats saved successfully!");
         } catch (error) {
           console.error("Error saving user quiz stats:", error);
         }
@@ -961,15 +990,37 @@
       });
       applyFilterBtn.addEventListener("click", applyFilters);
 
+      // --- Show only questions wrong in last 3 attempts ---
+      showLast3WrongBtn.addEventListener("click", () => {
+        const wrongQuestions = questions.filter(
+          (q) =>
+            Array.isArray(q.lastAnswers) &&
+            q.lastAnswers.length === 3 &&
+            q.lastAnswers.every((ans) => ans === "wrong")
+        );
+        if (wrongQuestions.length === 0) {
+          allQuestionsContainerEl.innerHTML =
+            '<p class="text-center text-red-400">No questions were wrong in the last 3 attempts.</p>';
+          allQuestionsContainerEl.classList.remove("hidden");
+          loadingIndicatorEl.classList.add("hidden");
+          return;
+        }
+        // Temporarily show only wrongQuestions
+        const prevFiltered = filteredQuestions;
+        filteredQuestions = wrongQuestions;
+        displayAllQuestions();
+        filteredQuestions = prevFiltered;
+      });
+
       // --- Initial Load ---
       authenticateAndLoadQuiz();
 
       onAuthStateChanged(auth, (user) => {
-        if (user) {
+        if (user && !user.isAnonymous) {
           userId = user.uid;
           console.log("onAuthStateChanged: User is signed in:", userId);
           userIdDisplayEl.textContent =
-            user.email || `UID: ${userId.substring(0, 8)}...`; // Display email or truncated UID
+            user.email || `UID: ${userId.substring(0, 8)}...`;
           userIdDisplayEl.classList.remove("hidden");
           googleAuthBtn.textContent = "Sign out";
           googleAuthBtn.classList.remove("bg-blue-600", "hover:bg-blue-700");
@@ -977,6 +1028,12 @@
           if (quizTopicSelectEl.options.length <= 1) {
             loadQuizList();
           }
+          // Enable quiz UI
+          quizTopicSelectEl.disabled = false;
+          shuffleBtn.disabled = false;
+          filterTypeSelectEl.disabled = false;
+          streakValueSelectEl.disabled = false;
+          applyFilterBtn.disabled = false;
         } else {
           userId = null;
           console.log("onAuthStateChanged: User is signed out.");
@@ -994,9 +1051,16 @@
           quizTitleEl.textContent = "";
           allQuestionsContainerEl.innerHTML = "";
           resultsAreaEl.classList.add("hidden");
-          loadingIndicatorEl.textContent = "Please sign in to load quizzes.";
+          loadingIndicatorEl.textContent =
+            "Please sign in with Google to load quizzes.";
           loadingIndicatorEl.classList.remove("hidden");
           quizTopicSelectEl.innerHTML = '<option value="">Select Quiz</option>';
+          // Disable quiz UI until signed in
+          quizTopicSelectEl.disabled = true;
+          shuffleBtn.disabled = true;
+          filterTypeSelectEl.disabled = true;
+          streakValueSelectEl.disabled = true;
+          applyFilterBtn.disabled = true;
         }
       });
 
