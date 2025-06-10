@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JSON Quiz Reader - Firestore</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+        padding-top: 90px; /* Increased padding for potentially taller score bar */
+      }
+      .question-item {
+        border-bottom: 1px solid #4a5568;
+        padding-bottom: 1.5rem;
+        margin-bottom: 1.5rem;
+      }
+      .question-item:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+      }
+      .option-label {
+        display: block;
+        width: 100%;
+        padding: 0.75rem;
+        border: 2px solid #4a5568;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        transition: background-color 0.2s, border-color 0.2s;
+        background-color: #2d3748;
+        text-align: center;
+        word-break: break-word;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        max-width: 100%;
+        box-sizing: border-box;
+        min-height: 3rem;
+        display: flex; /* Use flex to center content vertically */
+        align-items: center; /* Center content vertically */
+        justify-content: center; /* Center content horizontally */
+      }
+      .option-label:hover:not(.disabled) {
+        background-color: #4a5568;
+        border-color: #6366f1;
+      }
+      input[type="radio"]:checked + .option-label:not(.disabled) {
+        background-color: #4338ca;
+        border-color: #818cf8;
+        color: white;
+      }
+      input[type="radio"] {
+        display: none;
+      }
+      .feedback-inline {
+        font-weight: 500;
+        margin-top: 0.5rem;
+        min-height: 1.5em;
+      }
+      .correct-inline {
+        color: #34d399;
+      }
+      .incorrect-inline {
+        color: #f87171;
+      }
+      .explanation-text {
+        margin-top: 0.75rem;
+        padding: 0.75rem;
+        background-color: #1f2937;
+        border-left: 4px solid #6366f1;
+        color: #d1d5db;
+        font-size: 0.875rem;
+        border-radius: 0.25rem;
+      }
+      .disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+      }
+      .correct-answer-highlight {
+        background-color: #10b981 !important;
+        border-color: #059669 !important;
+        color: white !important;
+      }
+      .incorrect-selection-highlight {
+        background-color: #ef4444 !important;
+        border-color: #dc2626 !important;
+        color: white !important;
+      }
+      #score-bar {
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        padding: 0.75rem 1rem;
+      }
+      .options-group > div {
+        display: flex;
+        height: 100%;
+      }
+      .options-group .option-label {
+        margin-bottom: 0;
+      }
+      #loading-indicator {
+        text-align: center;
+        padding: 2rem;
+        font-size: 1.25rem;
+        color: #9ca3af; /* gray-400 */
+      }
+      /* New style for mnemonic display area */
+      .mnemonic-display-area {
+        word-break: break-word;
+        white-space: pre-wrap; /* Ensures text wraps and preserves formatting */
+      }
+    </style>
+  </head>
+  <body
+    class="bg-gradient-to-br from-slate-900 to-slate-700 min-h-screen text-slate-100"
+  >
+    <div
+      id="score-bar"
+      class="fixed top-0 left-0 right-0 bg-slate-900/80 backdrop-blur-sm z-50 flex flex-wrap justify-between items-center p-3 sm:p-4 gap-2"
+    >
+      <div class="flex items-center space-x-2">
+        <select
+          id="quiz-topic-select"
+          class="bg-gray-700 text-white py-1.5 px-2 rounded-lg shadow-md text-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        >
+          <option value="">Select Quiz</option>
+        </select>
+      </div>
+      <p
+        id="score-text"
+        class="text-base sm:text-lg font-semibold text-indigo-300 flex-grow text-center sm:text-left"
+      >
+        സ്കോർ: 0 / 0
+      </p>
+      <div class="flex items-center space-x-2">
+        <button
+          id="shuffle-btn"
+          class="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-1.5 px-3 rounded-lg shadow-md transition-colors duration-150 text-sm"
+        >
+          Shuffle
+        </button>
+        <label class="flex items-center space-x-2 ml-2">
+          <input
+            type="checkbox"
+            id="study-mode-checkbox"
+            class="accent-indigo-500"
+          />
+          <span class="text-sm text-indigo-200">Study</span>
+        </label>
+        <select
+          id="filter-type-select"
+          class="bg-gray-700 text-white py-1.5 px-2 rounded-lg shadow-md text-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        >
+          <option value="all">All</option>
+          <option value="notAttempted">New</option>
+          <option value="leastAttempted">Least</option>
+          <option value="streak">Streak</option>
+        </select>
+        <select
+          id="streak-value-select"
+          class="bg-gray-700 text-white py-1.5 px-2 rounded-lg shadow-md text-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-indigo-500 hidden"
+        >
+          <option value="0">0</option>
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3+</option>
+        </select>
+        <button
+          id="apply-filter-btn"
+          class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1.5 px-3 rounded-lg shadow-md transition-colors duration-150 text-sm"
+        >
+          Apply
+        </button>
+      </div>
+      <div class="flex items-center space-x-2 ml-auto">
+        <span
+          id="user-email-display"
+          class="text-xs text-slate-300 hidden"
+        ></span>
+        <button
+          id="google-auth-btn"
+          class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1.5 px-3 rounded-lg shadow-md transition-colors duration-150 text-sm"
+        >
+          Sign in
+        </button>
+      </div>
+    </div>
+    <div
+      id="quiz-container"
+      class="bg-slate-800 p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-2xl mx-auto lg:max-w-none lg:w-full lg:h-[calc(100vh-4rem)] lg:rounded-none lg:mx-0"
+    >
+      <h1
+        id="quiz-title"
+        class="text-3xl font-bold text-center mb-8 text-indigo-400"
+      ></h1>
+      <div id="loading-indicator">Loading Quiz...</div>
+      <div id="all-questions-container" class="mb-8 hidden"></div>
+
+      <div id="results-area" class="hidden text-center mt-10">
+        <h2 class="text-2xl sm:text-3xl font-bold mb-4 text-indigo-400">
+          Quiz Completed!
+        </h2>
+        <p id="final-score-text" class="text-xl mb-6"></p>
+        <button
+          id="restart-btn"
+          class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-6 rounded-lg shadow-md transition-colors duration-150"
+        >
+          Restart Quiz
+        </button>
+      </div>
+    </div>
+    <script type="module">
+      // Firebase SDK imports
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+      import {
+        getAuth,
+        signInAnonymously,
+        signInWithCustomToken,
+        GoogleAuthProvider,
+        signInWithPopup,
+        signOut,
+        onAuthStateChanged,
+      } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+      import {
+        getFirestore,
+        doc,
+        getDoc,
+        setDoc,
+        setLogLevel,
+        collection,
+        getDocs,
+      } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+      // --- Firebase Configuration ---
+      const firebaseConfig =
+        typeof __firebase_config !== "undefined"
+          ? JSON.parse(__firebase_config)
+          : {
+              // Fallback config updated with user-provided values
+              apiKey: "AIzaSyA88fPkOvcI4QA9qD3ROpk-ay-V6ibQQlc",
+              authDomain: "my-application-7fd40.firebaseapp.com",
+              projectId: "my-application-7fd40",
+              storageBucket: "my-application-7fd40.appspot.com",
+              messagingSenderId: "269589994279",
+              appId: "1:269589994279:web:4c617a622c328a1224e702",
+              measurementId: "G-D8MD1J28GR",
+            };
+      const initialAuthToken =
+        typeof __initial_auth_token !== "undefined"
+          ? __initial_auth_token
+          : null;
+
+      // Initialize Firebase
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+      const db = getFirestore(app);
+      setLogLevel("debug");
+
+      // --- DOM Elements ---
+      const quizTitleEl = document.getElementById("quiz-title");
+      const allQuestionsContainerEl = document.getElementById(
+        "all-questions-container"
+      );
+      const scoreTextEl = document.getElementById("score-text");
+      const resultsAreaEl = document.getElementById("results-area");
+      const finalScoreTextEl = document.getElementById("final-score-text");
+      const restartBtn = document.getElementById("restart-btn");
+      const scoreBarEl = document.getElementById("score-bar");
+      const shuffleBtn = document.getElementById("shuffle-btn");
+      const loadingIndicatorEl = document.getElementById("loading-indicator");
+
+      const quizTopicSelectEl = document.getElementById("quiz-topic-select");
+      const googleAuthBtn = document.getElementById("google-auth-btn");
+      const userIdDisplayEl = document.getElementById("user-email-display"); // Renamed for clarity
+      // New filter DOM elements
+      const filterTypeSelectEl = document.getElementById("filter-type-select");
+      const streakValueSelectEl = document.getElementById(
+        "streak-value-select"
+      );
+      const applyFilterBtn = document.getElementById("apply-filter-btn");
+
+      // --- Quiz State ---
+      let score = 0;
+      let questions = []; // Master list of all questions with their current stats
+      let filteredQuestions = []; // Questions currently displayed after applying filters
+      let answeredQuestionsCount = 0;
+      let originalQuizData = null;
+      let selectedQuizDocId = "";
+      let userId = null;
+
+      // --- Helper Functions ---
+      function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [array[i], array[j]] = [array[j], array[i]];
+        }
+      }
+
+      function cleanOptionText(text) {
+        // Regex to remove common prefixes like "A) ", "a) ", "1. ", etc.
+        const prefixRegex = /^([A-D]|[a-d])\)\s*|^[0-9]+\.\s*/;
+        return text.replace(prefixRegex, "");
+      }
+
+      // --- Firebase Authentication Functions ---
+      async function signInWithGoogle() {
+        const provider = new GoogleAuthProvider();
+        try {
+          await signInWithPopup(auth, provider);
+          console.log("Signed in with Google! 🙂");
+        } catch (error) {
+          console.error("Error signing in with Google:", error);
+          if (error.code === "auth/popup-closed-by-user") {
+            console.log("Google sign-in popup closed by user.");
+          } else {
+            // Using a simple message for user feedback instead of alert()
+            const message = `Google Sign-in failed: ${error.message}`;
+            console.error(message);
+            // In a real app, you'd show a custom modal or message in the UI
+            // For now, we'll just log it.
+          }
+        }
+      }
+
+      async function signOutUser() {
+        try {
+          await signOut(auth);
+          console.log("User signed out.");
+          // Clear quiz data and reset UI on sign out
+          questions = [];
+          filteredQuestions = [];
+          originalQuizData = null;
+          selectedQuizDocId = "";
+          score = 0;
+          answeredQuestionsCount = 0;
+          quizTitleEl.textContent = "";
+          allQuestionsContainerEl.innerHTML = "";
+          resultsAreaEl.classList.add("hidden");
+          loadingIndicatorEl.textContent =
+            "Signed out. Please sign in to load quizzes.";
+          loadingIndicatorEl.classList.remove("hidden");
+          quizTopicSelectEl.innerHTML = '<option value="">Select Quiz</option>'; // Clear dropdown, keep default option
+          // Reset filter selections
+          filterTypeSelectEl.value = "all";
+          streakValueSelectEl.classList.add("hidden");
+          streakValueSelectEl.value = "0";
+        } catch (error) {
+          console.error("Error signing out:", error);
+          // Using a simple message for user feedback instead of alert()
+          const message = `Sign out failed: ${error.message}`;
+          console.error(message);
+          // In a real app, you'd show a custom modal or message in the UI
+        }
+      }
+
+      async function loadQuizList() {
+        loadingIndicatorEl.textContent = "Loading available quizzes...";
+        loadingIndicatorEl.classList.remove("hidden");
+        allQuestionsContainerEl.classList.add("hidden");
+        quizTitleEl.textContent = "";
+        quizTopicSelectEl.innerHTML = '<option value="">Select Quiz</option>'; // Reset dropdown, keep default option
+
+        try {
+          const quizCollectionPath = `quizi`;
+          console.log(
+            `Attempting to load quiz list from: ${quizCollectionPath}`
+          );
+          const quizCollectionRef = collection(db, quizCollectionPath);
+          const snapshot = await getDocs(quizCollectionRef);
+          const availableQuizDocs = [];
+
+          snapshot.forEach((docSnap) => {
+            availableQuizDocs.push(docSnap.id);
+          });
+
+          if (availableQuizDocs.length === 0) {
+            loadingIndicatorEl.textContent =
+              "No quizzes found in Firestore. Please ensure your quiz documents are directly under the 'quizi' collection.";
+            return;
+          }
+
+          availableQuizDocs.forEach((quizId) => {
+            const option = document.createElement("option");
+            option.value = quizId;
+            option.textContent = quizId;
+            quizTopicSelectEl.appendChild(option);
+          });
+
+          loadingIndicatorEl.classList.add("hidden");
+        } catch (error) {
+          console.error("Error loading quiz list:", error);
+          loadingIndicatorEl.textContent = `Failed to load quiz list: ${error.message}. Please check your Firestore security rules for the "quizi" collection.`;
+        }
+      }
+
+      async function fetchQuizData() {
+        selectedQuizDocId = quizTopicSelectEl.value;
+
+        if (!selectedQuizDocId) {
+          loadingIndicatorEl.textContent =
+            "Please select a quiz from the dropdown.";
+          loadingIndicatorEl.classList.remove("hidden");
+          allQuestionsContainerEl.classList.add("hidden");
+          quizTitleEl.textContent = "";
+          return;
+        }
+
+        loadingIndicatorEl.textContent = `Loading Quiz: ${selectedQuizDocId}...`;
+        loadingIndicatorEl.classList.remove("hidden");
+        allQuestionsContainerEl.classList.add("hidden");
+        quizTitleEl.textContent = "";
+        resultsAreaEl.classList.add("hidden");
+
+        if (!userId) {
+          console.warn("User not authenticated. Cannot load quiz data.");
+          loadingIndicatorEl.textContent = "Please sign in to load quizzes.";
+          return;
+        }
+
+        // Firebase paths for quiz data and user stats
+        const quizDocPath = `quizi/${selectedQuizDocId}`;
+        const userStatsDocPath = `users/${userId}/quizStats/${selectedQuizDocId}`;
+
+        console.log(`Fetching quiz data from: ${quizDocPath}`);
+        console.log(`Fetching user stats from: ${userStatsDocPath}`);
+
+        try {
+          const [docSnap, userStatsSnap] = await Promise.all([
+            getDoc(doc(db, quizDocPath)),
+            getDoc(doc(db, userStatsDocPath)),
+          ]);
+
+          if (docSnap.exists()) {
+            console.log("Quiz document data:", docSnap.data());
+            originalQuizData = { id: selectedQuizDocId, ...docSnap.data() };
+
+            if (!originalQuizData.questions) {
+              console.error("Fetched data is missing 'questions'.");
+              loadingIndicatorEl.textContent =
+                "Error: Invalid quiz data format from Firestore. 'questions' array is missing.";
+              return;
+            }
+
+            let userQuestionStats = {};
+            let last3Stats = {};
+            if (userStatsSnap.exists()) {
+              console.log("User stats document data:", userStatsSnap.data());
+              userQuestionStats = userStatsSnap.data().questionStats || {};
+              last3Stats = userStatsSnap.data().last3Stats || {};
+            } else {
+              console.log(
+                "No user stats found for this quiz. Initializing new stats."
+              );
+            }
+
+            // Merge user stats into questions
+            originalQuizData.questions = originalQuizData.questions.map(
+              (q, idx) => {
+                const questionId = q.id || `${selectedQuizDocId}-${idx}`; // Ensure each question has a unique ID
+                const stats = userQuestionStats[questionId] || {
+                  correctCount: 0,
+                  incorrectCount: 0,
+                  currentStreak: 0,
+                  lastAnswerCorrect: null,
+                  lastAttemptedTime: null,
+                };
+                return {
+                  ...q,
+                  id: questionId, // Assign generated ID if not present
+                  ...stats,
+                  isAnswered: false, // Reset interaction state on load
+                  userSelection: null, // Reset user selection on load
+                  lastAnswers:
+                    (last3Stats[questionId] &&
+                      last3Stats[questionId].lastAnswers) ||
+                    [],
+                };
+              }
+            );
+
+            initializeQuiz(originalQuizData);
+          } else {
+            console.log("No such document at path:", quizDocPath);
+            loadingIndicatorEl.textContent = `Quiz not found at '${quizDocPath}'. Please check the document ID and ensure Firestore security rules allow access.`;
+          }
+        } catch (error) {
+          console.error("Error fetching quiz data or user stats: ", error);
+          if (
+            error.code === "permission-denied" ||
+            (error.message &&
+              error.message.toLowerCase().includes("permission"))
+          ) {
+            loadingIndicatorEl.textContent =
+              "Error: Missing or insufficient permissions to access quiz data or user stats. Please check your Firestore security rules for 'quizi' and 'users/{userId}/quizStats' collections. Expected paths: " +
+              quizDocPath +
+              " and " +
+              userStatsDocPath;
+          } else {
+            loadingIndicatorEl.textContent = `Error loading quiz: ${error.message}. Please try again.`;
+          }
+        }
+      }
+
+      function initializeQuiz(quizData) {
+        // Deep clone questions to avoid modifying originalQuizData directly
+        questions = JSON.parse(JSON.stringify(quizData.questions)).map((q) => {
+          // Shuffle options once when quiz is loaded for initial display
+          const shuffledOptions = [...q.options];
+          shuffleArray(shuffledOptions);
+          return {
+            ...q,
+            options: shuffledOptions,
+            isAnswered: false, // Ensure questions are initially not answered
+            userSelection: null, // Clear any previous user selection
+          };
+        });
+
+        quizTitleEl.textContent = quizData.quizTitle || "ചോദ്യോത്തരി";
+        score = 0;
+        answeredQuestionsCount = 0;
+
+        // Adjust body padding based on score bar height for fixed header
+        setTimeout(() => {
+          const scoreBarHeight = scoreBarEl.offsetHeight;
+          document.body.style.paddingTop = `${scoreBarHeight + 20}px`;
+        }, 50);
+
+        updateScoreDisplay();
+        applyFilters(); // Apply filters after initializing the quiz to display filtered set
+        resultsAreaEl.classList.add("hidden");
+        allQuestionsContainerEl.classList.remove("hidden");
+        loadingIndicatorEl.classList.add("hidden");
+        scoreTextEl.classList.remove("hidden");
+      }
+
+      function shuffleActiveQuiz() {
+        if (questions.length === 0) {
+          console.warn("No questions loaded to shuffle.");
+          return;
+        }
+        shuffleArray(questions);
+        applyFilters(); // Re-apply filters to update the displayed order
+      }
+
+      function applyFilters() {
+        const filterType = filterTypeSelectEl.value;
+        const streakValue = parseInt(streakValueSelectEl.value);
+
+        filteredQuestions = questions.filter((q) => {
+          const totalAttempts = (q.correctCount || 0) + (q.incorrectCount || 0);
+          switch (filterType) {
+            case "all":
+              return true; // Show all questions
+            case "notAttempted":
+              return totalAttempts === 0; // Show only questions not yet attempted
+            case "leastAttempted":
+              return true; // Filtering by this type will be handled by sorting later
+            case "streak":
+              if (streakValue === 3) {
+                // "3+" means current streak is 3 or more
+                return (q.currentStreak || 0) >= 3;
+              } else {
+                // Exact streak value match
+                return (q.currentStreak || 0) === streakValue;
+              }
+            default:
+              return true; // Default to showing all if filter type is unknown
+          }
+        });
+
+        // Apply sorting for "Least Attempted" filter type
+        if (filterType === "leastAttempted") {
+          filteredQuestions.sort((a, b) => {
+            const attemptsA = (a.correctCount || 0) + (a.incorrectCount || 0);
+            const attemptsB = (b.correctCount || 0) + (b.incorrectCount || 0);
+            return attemptsA - attemptsB; // Sort by ascending total attempts
+          });
+        }
+
+        displayAllQuestions(); // Re-render the questions based on applied filters and sorting
+      }
+
+      function displayAllQuestions() {
+        // Handle no questions loaded or no questions matching filter
+        if (filteredQuestions.length === 0 && !originalQuizData) {
+          allQuestionsContainerEl.innerHTML =
+            '<p class="text-center text-slate-400">No questions loaded. Please select a quiz.</p>';
+          allQuestionsContainerEl.classList.remove("hidden");
+          loadingIndicatorEl.classList.add("hidden");
+          return;
+        }
+        if (filteredQuestions.length === 0 && originalQuizData) {
+          allQuestionsContainerEl.innerHTML =
+            '<p class="text-center text-slate-400">No questions match the current filter criteria.</p>';
+          allQuestionsContainerEl.classList.remove("hidden");
+          loadingIndicatorEl.classList.add("hidden");
+          return;
+        }
+
+        allQuestionsContainerEl.innerHTML = ""; // Clear existing questions
+        loadingIndicatorEl.classList.add("hidden");
+        allQuestionsContainerEl.classList.remove("hidden");
+
+        filteredQuestions.forEach((questionData, indexInShuffledList) => {
+          const questionItemEl = document.createElement("div");
+          questionItemEl.classList.add("question-item");
+          questionItemEl.id = `question-item-${questionData.id}`;
+          questionItemEl.dataset.currentDisplayIndex = indexInShuffledList;
+
+          const questionTextEl = document.createElement("h3");
+          questionTextEl.classList.add(
+            "text-lg",
+            "sm:text-xl",
+            "font-semibold",
+            "mb-4",
+            "text-indigo-200"
+          );
+          questionTextEl.textContent = questionData.question;
+          questionItemEl.appendChild(questionTextEl);
+
+          const optionsDivEl = document.createElement("div");
+          optionsDivEl.classList.add(
+            "options-group",
+            "grid",
+            "grid-cols-1",
+            "sm:grid-cols-2",
+            "lg:grid-cols-4",
+            "gap-2"
+          );
+
+          // Ensure options are shuffled when displayed
+          let displayOptions = [...questionData.options];
+          // Note: Options are already shuffled once during initializeQuiz for fresh load
+          // No need to re-shuffle here unless specific logic dictates.
+
+          displayOptions.forEach((option) => {
+            const optionWrapper = document.createElement("div");
+            const optionDomId = `q${questionData.id}_opt${option.key}`;
+            const radioInput = document.createElement("input");
+            radioInput.type = "radio";
+            radioInput.name = `question_${questionData.id}`; // Use question ID for unique group
+            radioInput.value = option.key;
+            radioInput.id = optionDomId;
+
+            const optionLabel = document.createElement("label");
+            optionLabel.htmlFor = optionDomId;
+            optionLabel.classList.add("option-label", "text-slate-300");
+            optionLabel.textContent = cleanOptionText(option.text); // Apply cleaning here
+            optionLabel.dataset.key = option.key;
+
+            // --- Study mode: highlight correct answer and disable interaction ---
+            if (studyModeCheckbox.checked) {
+              radioInput.disabled = true;
+              if (option.key === questionData.answer) {
+                optionLabel.classList.add("correct-answer-highlight");
+              }
+            } else {
+              // Only attach click listener if not in study mode and not already answered
+              if (!questionData.isAnswered) {
+                optionLabel.addEventListener("click", (event) =>
+                  handleOptionSelect(event, questionData.id, option.key)
+                );
+              }
+            }
+
+            optionWrapper.appendChild(radioInput);
+            optionWrapper.appendChild(optionLabel);
+            optionsDivEl.appendChild(optionWrapper);
+          });
+          questionItemEl.appendChild(optionsDivEl);
+
+          const feedbackEl = document.createElement("p");
+          feedbackEl.classList.add("feedback-inline");
+          feedbackEl.id = `feedback-${questionData.id}`;
+          questionItemEl.appendChild(feedbackEl);
+
+          const explanationEl = document.createElement("p");
+          explanationEl.classList.add("explanation-text", "hidden");
+          explanationEl.id = `explanation-${questionData.id}`;
+          questionItemEl.appendChild(explanationEl);
+
+          // Add user stats display
+          const statsDiv = document.createElement("div");
+          statsDiv.classList.add(
+            "text-sm",
+            "text-slate-400",
+            "mt-2",
+            "flex",
+            "flex-wrap",
+            "gap-x-4"
+          );
+          statsDiv.innerHTML = `
+            <p>Correct: <span id="correct-count-${
+              questionData.id
+            }" class="font-semibold text-green-400">${
+            questionData.correctCount || 0
+          }</span></p>
+            <p>Incorrect: <span id="incorrect-count-${
+              questionData.id
+            }" class="font-semibold text-red-400">${
+            questionData.incorrectCount || 0
+          }</span></p>
+            <p>Streak: <span id="streak-${
+              questionData.id
+            }" class="font-semibold text-yellow-400">${
+            questionData.currentStreak || 0
+          }</span></p>
+          `;
+          questionItemEl.appendChild(statsDiv);
+
+          // --- Add Mnemonic Button and Display Area ---
+          const mnemonicBtn = document.createElement("button");
+          mnemonicBtn.classList.add(
+            "mnemonic-btn",
+            "bg-yellow-600",
+            "hover:bg-yellow-700",
+            "text-white",
+            "font-semibold",
+            "py-1.5",
+            "px-4",
+            "rounded-lg",
+            "shadow-md",
+            "transition-colors",
+            "duration-150",
+            "text-sm",
+            "mt-4"
+          );
+          mnemonicBtn.dataset.questionId = questionData.id;
+          mnemonicBtn.textContent = "Generate Mnemonic";
+          questionItemEl.appendChild(mnemonicBtn);
+
+          const mnemonicDisplayEl = document.createElement("div");
+          mnemonicDisplayEl.id = `mnemonic-display-${questionData.id}`;
+          mnemonicDisplayEl.classList.add(
+            "mnemonic-display-area",
+            "mt-2",
+            "p-3",
+            "bg-slate-700",
+            "border",
+            "border-slate-600",
+            "rounded-lg",
+            "text-slate-200",
+            "text-sm",
+            "italic",
+            "hidden" // Initially hidden
+          );
+          questionItemEl.appendChild(mnemonicDisplayEl);
+
+          // Attach event listener for mnemonic button
+          mnemonicBtn.addEventListener("click", () =>
+            generateMnemonic(questionData.id)
+          );
+          // --- End Mnemonic Button and Display Area ---
+
+          allQuestionsContainerEl.appendChild(questionItemEl);
+
+          // Restore state for already answered questions (e.g., after filter change or re-display)
+          if (questionData.isAnswered) {
+            questionItemEl.dataset.answered = "true";
+            const radioInputsInItem = questionItemEl.querySelectorAll(
+              `input[name="question_${questionData.id}"]`
+            );
+
+            radioInputsInItem.forEach((radio) => {
+              radio.disabled = true; // Disable interaction
+              const label = questionItemEl.querySelector(
+                `label[for="${radio.id}"]`
+              );
+              if (label) {
+                label.classList.add("disabled"); // Apply disabled styling
+                const optionKeyForThisLabel = label.dataset.key;
+
+                if (optionKeyForThisLabel === questionData.userSelection) {
+                  radio.checked = true; // Mark user's selected option as checked
+                  if (questionData.userSelection === questionData.answer) {
+                    label.classList.add("correct-answer-highlight"); // Highlight correct selection
+                  } else {
+                    label.classList.add("incorrect-selection-highlight"); // Highlight incorrect selection
+                  }
+                }
+                // Always highlight the correct answer if a selection was made (even if incorrect)
+                if (
+                  optionKeyForThisLabel === questionData.answer &&
+                  questionData.userSelection !== questionData.answer
+                ) {
+                  label.classList.add("correct-answer-highlight");
+                }
+              }
+            });
+
+            // Display feedback for answered questions
+            const correctAnswerObject = questionData.options.find(
+              (opt) => opt.key === questionData.answer
+            );
+            if (questionData.userSelection === questionData.answer) {
+              feedbackEl.textContent = "ശരിയാണ്!";
+              feedbackEl.classList.add("correct-inline");
+              feedbackEl.classList.remove("incorrect-inline");
+            } else {
+              feedbackEl.textContent = `തെറ്റാണ്. ശരിയായ ഉത്തരം: ${
+                correctAnswerObject
+                  ? cleanOptionText(correctAnswerObject.text)
+                  : questionData.answer
+              }`;
+              feedbackEl.classList.add("incorrect-inline");
+              feedbackEl.classList.remove("correct-inline");
+            }
+            // Show explanation if available
+            if (questionData.explanation) {
+              const currentExplanationEl = document.getElementById(
+                `explanation-${questionData.id}`
+              );
+              if (currentExplanationEl) {
+                currentExplanationEl.textContent = questionData.explanation;
+                currentExplanationEl.classList.remove("hidden");
+              }
+            }
+          } else {
+            // Reset feedback and explanation for unanswered questions
+            questionItemEl.dataset.answered = "false";
+            feedbackEl.textContent = "";
+            feedbackEl.className = "feedback-inline"; // Reset classes
+            const currentExplanationEl = document.getElementById(
+              `explanation-${questionData.id}`
+            );
+            if (currentExplanationEl) {
+              currentExplanationEl.classList.add("hidden");
+              currentExplanationEl.textContent = "";
+            }
+          }
+        });
+        updateScoreDisplay();
+      }
+
+      /**
+       * Generates a mnemonic for a given question and its correct answer using the Gemini API.
+       * Displays the generated mnemonic in the UI.
+       * @param {string} questionId - The ID of the question to generate a mnemonic for.
+       */
+      async function generateMnemonic(questionId) {
+        const questionData = questions.find((q) => q.id === questionId);
+        if (!questionData || !questionData.answer) {
+          console.error(
+            "Question data or answer not found for ID:",
+            questionId
+          );
+          return;
+        }
+
+        const mnemonicDisplayEl = document.getElementById(
+          `mnemonic-display-${questionId}`
+        );
+        const mnemonicBtn = document.querySelector(
+          `.mnemonic-btn[data-question-id="${questionId}"]`
+        );
+
+        if (mnemonicDisplayEl) {
+          mnemonicDisplayEl.classList.remove("hidden");
+          mnemonicDisplayEl.innerHTML =
+            '<p class="text-center text-slate-400">Generating mnemonic...</p>';
+        }
+        if (mnemonicBtn) {
+          mnemonicBtn.disabled = true;
+          mnemonicBtn.textContent = "Generating...";
+        }
+
+        // Find the full text of the correct answer option, fall back to key if not found
+        const correctAnswerObject = questionData.options.find(
+          (opt) => opt.key === questionData.answer
+        );
+        const rightAnswerText = correctAnswerObject
+          ? cleanOptionText(correctAnswerObject.text)
+          : questionData.answer;
+
+        // Updated prompt to be more direct and concise as a memory coach
+        const prompt = `As a specially skilled memory coach, create a simple, vivid, and effective mnemonic that is 2-3 lines long. Your goal is to help me permanently remember that the answer to "${questionData.question}" is "${rightAnswerText}". Do NOT explain how the mnemonic works, just provide the mnemonic itself.`;
+
+        let chatHistory = [];
+        chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+        const payload = { contents: chatHistory };
+        // IMPORTANT: Using the API key provided by the user.
+        const apiKey = "AIzaSyDHFeUOuQvF2wlvi2UFBXqyKlwKnRc-0kQ";
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+        try {
+          const response = await fetch(apiUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+
+          if (!response.ok) {
+            const errorBody = await response.json();
+            throw new Error(
+              `API error: ${response.status} - ${
+                errorBody.error.message || response.statusText
+              }`
+            );
+          }
+
+          const result = await response.json();
+          if (
+            result.candidates &&
+            result.candidates.length > 0 &&
+            result.candidates[0].content &&
+            result.candidates[0].content.parts &&
+            result.candidates[0].content.parts.length > 0
+          ) {
+            const text = result.candidates[0].content.parts[0].text;
+            if (mnemonicDisplayEl) {
+              mnemonicDisplayEl.innerHTML = `<p>${text}</p>`;
+            }
+          } else {
+            if (mnemonicDisplayEl) {
+              mnemonicDisplayEl.innerHTML =
+                '<p class="text-red-400">Failed to generate mnemonic. No content received.</p>';
+            }
+          }
+        } catch (error) {
+          console.error("Error generating mnemonic:", error);
+          if (mnemonicDisplayEl) {
+            mnemonicDisplayEl.innerHTML = `<p class="text-red-400">Error: ${error.message}. Please check API key, network, or try again.</p>`;
+          }
+        } finally {
+          // Re-enable the button and reset its text
+          if (mnemonicBtn) {
+            mnemonicBtn.disabled = false;
+            mnemonicBtn.textContent = "Generate Mnemonic";
+          }
+        }
+      }
+
+      // --- Track last 3 answers for each question ---
+      function updateLastAnswers(question, isCorrect) {
+        if (!Array.isArray(question.lastAnswers)) question.lastAnswers = [];
+        question.lastAnswers.push(isCorrect ? "correct" : "wrong");
+        if (question.lastAnswers.length > 3) question.lastAnswers.shift(); // Keep only the last 3
+      }
+
+      function handleOptionSelect(event, questionId, selectedKey) {
+        const questionObject = questions.find((q) => q.id === questionId);
+        if (!questionObject) {
+          console.error(`Question with ID ${questionId} not found.`);
+          return;
+        }
+
+        const questionItemEl = document.getElementById(
+          `question-item-${questionId}`
+        );
+
+        // Prevent re-answering if already answered
+        if (
+          questionObject.isAnswered ||
+          (questionItemEl && questionItemEl.dataset.answered === "true")
+        ) {
+          return;
+        }
+
+        questionObject.isAnswered = true;
+        questionObject.userSelection = selectedKey;
+        answeredQuestionsCount++;
+
+        if (questionItemEl) questionItemEl.dataset.answered = "true";
+
+        const feedbackEl = document.getElementById(
+          `feedback-${questionObject.id}`
+        );
+        const radioInputs = questionItemEl.querySelectorAll(
+          `input[name="question_${questionObject.id}"]`
+        );
+        const clickedLabel = event.currentTarget;
+
+        // Ensure the clicked radio button is checked visually
+        const correspondingRadio = document.getElementById(
+          `q${questionObject.id}_opt${selectedKey}`
+        );
+        if (correspondingRadio) {
+          correspondingRadio.checked = true;
+        }
+
+        // Disable all radio buttons and labels for this question after selection
+        radioInputs.forEach((radio) => {
+          radio.disabled = true;
+          const label = questionItemEl.querySelector(
+            `label[for="${radio.id}"]`
+          );
+          if (label) label.classList.add("disabled");
+        });
+
+        const correctAnswerObject = questionObject.options.find(
+          (opt) => opt.key === questionObject.answer
+        );
+
+        // Update user stats for the question
+        const isCorrect = selectedKey === questionObject.answer;
+        updateLastAnswers(questionObject, isCorrect); // Update last 3 answers
+
+        if (isCorrect) {
+          score++;
+          feedbackEl.textContent = "ശരിയാണ്!";
+          feedbackEl.classList.add("correct-inline");
+          feedbackEl.classList.remove("incorrect-inline");
+          clickedLabel.classList.add("correct-answer-highlight");
+
+          questionObject.correctCount = (questionObject.correctCount || 0) + 1;
+          questionObject.currentStreak =
+            (questionObject.currentStreak || 0) + 1;
+          questionObject.lastAnswerCorrect = true;
+        } else {
+          feedbackEl.textContent = `തെറ്റാണ്. ശരിയായ ഉത്തരം: ${
+            correctAnswerObject
+              ? cleanOptionText(correctAnswerObject.text)
+              : questionObject.answer
+          }`;
+          feedbackEl.classList.add("incorrect-inline");
+          feedbackEl.classList.remove("correct-inline");
+          clickedLabel.classList.add("incorrect-selection-highlight");
+
+          // Highlight the correct answer if the user's selection was incorrect
+          const correctLabelInDom = questionItemEl.querySelector(
+            `label[data-key="${questionObject.answer}"]`
+          );
+          if (correctLabelInDom)
+            correctLabelInDom.classList.add("correct-answer-highlight");
+
+          questionObject.incorrectCount =
+            (questionObject.incorrectCount || 0) + 1;
+          questionObject.currentStreak = 0; // Reset streak on incorrect answer
+          questionObject.lastAnswerCorrect = false;
+        }
+
+        // Add last attempted time
+        questionObject.lastAttemptedTime = new Date().toISOString();
+
+        // Update stats display on the UI dynamically
+        document.getElementById(
+          `correct-count-${questionObject.id}`
+        ).textContent = questionObject.correctCount;
+        document.getElementById(
+          `incorrect-count-${questionObject.id}`
+        ).textContent = questionObject.incorrectCount;
+        document.getElementById(`streak-${questionObject.id}`).textContent =
+          questionObject.currentStreak;
+
+        // Show explanation if available
+        if (questionObject.explanation) {
+          const explanationEl = document.getElementById(
+            `explanation-${questionObject.id}`
+          );
+          if (explanationEl) {
+            explanationEl.textContent = questionObject.explanation;
+            explanationEl.classList.remove("hidden");
+          }
+        }
+
+        updateScoreDisplay();
+        saveUserQuizStats(); // Save updated stats to Firestore
+        saveLast3StatsToFirestore(); // Save last 3 answers after each attempt
+        applyFilters(); // Re-apply filters after an answer to update the view (e.g., if "New" filter is active)
+
+        if (answeredQuestionsCount === filteredQuestions.length) {
+          // If all currently filtered questions are answered
+          showResults();
+        }
+      }
+
+      /**
+       * Saves the 'lastAnswers' (last 3 attempts) for each question to Firestore.
+       * This is separate from general question stats to allow for different merge behaviors.
+       */
+      async function saveLast3StatsToFirestore() {
+        if (!userId || !selectedQuizDocId) return; // Ensure user is authenticated and quiz is selected
+        const userStatsDocRef = doc(
+          db,
+          `users/${userId}/quizStats/${selectedQuizDocId}`
+        );
+        const last3Stats = {};
+        questions.forEach((q) => {
+          last3Stats[q.id] = { lastAnswers: q.lastAnswers || [] }; // Store lastAnswers array
+        });
+        try {
+          await setDoc(userStatsDocRef, { last3Stats }, { merge: true }); // Merge with existing doc
+        } catch (e) {
+          console.error("Error saving last 3 stats:", e);
+        }
+      }
+
+      /**
+       * Saves the user's quiz statistics (correct/incorrect counts, streak, etc.)
+       * for all questions in the current quiz to Firestore.
+       */
+      async function saveUserQuizStats() {
+        if (!userId || !selectedQuizDocId) return; // Ensure user is authenticated and quiz is selected
+        const userStatsDocRef = doc(
+          db,
+          `users/${userId}/quizStats/${selectedQuizDocId}`
+        );
+        const questionStatsToSave = {};
+        questions.forEach((q) => {
+          questionStatsToSave[q.id] = {
+            correctCount: q.correctCount || 0,
+            incorrectCount: q.incorrectCount || 0,
+            currentStreak: q.currentStreak || 0,
+            lastAnswerCorrect: q.lastAnswerCorrect || null,
+            lastAttemptedTime: q.lastAttemptedTime || null,
+            // lastAnswers is saved separately by saveLast3StatsToFirestore to avoid overwriting during merges
+          };
+        });
+        try {
+          await setDoc(
+            userStatsDocRef,
+            { questionStats: questionStatsToSave },
+            { merge: true }
+          ); // Use merge to avoid overwriting other fields in the doc
+          console.log("User quiz stats saved successfully!");
+        } catch (error) {
+          console.error("Error saving user quiz stats:", error);
+        }
+      }
+
+      function updateScoreDisplay() {
+        scoreTextEl.textContent = `സ്കോർ: ${score} / ${questions.length || 0}`;
+      }
+
+      function showResults() {
+        resultsAreaEl.classList.remove("hidden");
+        finalScoreTextEl.textContent = `നിങ്ങൾക്ക് ${questions.length}-ൽ ${score} സ്കോർ ലഭിച്ചു!`;
+      }
+
+      // --- Event Listeners ---
+      restartBtn.addEventListener("click", () => {
+        if (originalQuizData) {
+          initializeQuiz(originalQuizData); // Restart with original data
+          resultsAreaEl.classList.add("hidden");
+        } else {
+          loadQuizList(); // If no original data, go back to loading quiz list
+        }
+      });
+      shuffleBtn.addEventListener("click", shuffleActiveQuiz);
+      // Auto-load quiz data when a topic is selected from the dropdown
+      quizTopicSelectEl.addEventListener("change", fetchQuizData);
+
+      googleAuthBtn.addEventListener("click", () => {
+        if (auth.currentUser) {
+          signOutUser(); // If user is signed in, sign them out
+        } else {
+          signInWithGoogle(); // If user is signed out, initiate Google Sign-in
+        }
+      });
+
+      // Filter event listeners
+      filterTypeSelectEl.addEventListener("change", (event) => {
+        if (event.target.value === "streak") {
+          streakValueSelectEl.classList.remove("hidden"); // Show streak value select for 'streak' filter
+        } else {
+          streakValueSelectEl.classList.add("hidden"); // Hide otherwise
+        }
+      });
+      applyFilterBtn.addEventListener("click", applyFilters); // Apply filters on button click
+
+      // --- Initial Load & Auth State Management ---
+      // Listen for authentication state changes
+      onAuthStateChanged(auth, (user) => {
+        if (user && !user.isAnonymous) {
+          userId = user.uid; // Set userId if user is signed in
+          console.log("onAuthStateChanged: User is signed in:", userId);
+          userIdDisplayEl.textContent =
+            user.email || `UID: ${userId.substring(0, 8)}...`; // Display user email or partial UID
+          userIdDisplayEl.classList.remove("hidden");
+          googleAuthBtn.textContent = "Sign out"; // Change button text
+          // Change button styling for sign out
+          googleAuthBtn.classList.remove("bg-blue-600", "hover:bg-blue-700");
+          googleAuthBtn.classList.add("bg-red-600", "hover:bg-red-700");
+
+          // Load quiz list only if it hasn't been loaded or is empty
+          if (quizTopicSelectEl.options.length <= 1) {
+            loadQuizList();
+          }
+          // Enable quiz UI elements after sign-in
+          quizTopicSelectEl.disabled = false;
+          shuffleBtn.disabled = false;
+          filterTypeSelectEl.disabled = false;
+          streakValueSelectEl.disabled = false;
+          applyFilterBtn.disabled = false;
+        } else {
+          userId = null; // Clear userId if user is signed out
+          console.log("onAuthStateChanged: User is signed out.");
+          userIdDisplayEl.textContent = "";
+          userIdDisplayEl.classList.add("hidden");
+          googleAuthBtn.textContent = "Sign in with Google"; // Change button text
+          // Change button styling for sign in
+          googleAuthBtn.classList.remove("bg-red-600", "hover:bg-red-700");
+          googleAuthBtn.classList.add("bg-blue-600", "hover:bg-blue-700");
+
+          // Reset quiz state and display messages
+          questions = [];
+          filteredQuestions = [];
+          originalQuizData = null;
+          selectedQuizDocId = "";
+          score = 0;
+          answeredQuestionsCount = 0;
+          quizTitleEl.textContent = "";
+          allQuestionsContainerEl.innerHTML = "";
+          resultsAreaEl.classList.add("hidden");
+          loadingIndicatorEl.textContent =
+            "Please sign in with Google to load quizzes.";
+          loadingIndicatorEl.classList.remove("hidden");
+          quizTopicSelectEl.innerHTML = '<option value="">Select Quiz</option>'; // Reset quiz topic dropdown
+          // Disable quiz UI elements until signed in
+          quizTopicSelectEl.disabled = true;
+          shuffleBtn.disabled = true;
+          filterTypeSelectEl.disabled = true;
+          streakValueSelectEl.disabled = true;
+          applyFilterBtn.disabled = true;
+        }
+      });
+
+      // Adjust padding on window resize to ensure score bar doesn't overlap content
+      window.addEventListener("resize", () => {
+        setTimeout(() => {
+          const scoreBarHeight = scoreBarEl.offsetHeight;
+          document.body.style.paddingTop = `${scoreBarHeight + 20}px`;
+        }, 50);
+      });
+
+      // Get reference to study mode checkbox
+      const studyModeCheckbox = document.getElementById("study-mode-checkbox");
+      // Re-display all questions when study mode is toggled to apply/remove highlights and disable interactions
+      studyModeCheckbox.addEventListener("change", () => {
+        displayAllQuestions();
+      });
+    </script>
+  </body>
+</html>
